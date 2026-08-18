@@ -1,14 +1,14 @@
 import { defineConfig } from "drizzle-kit";
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString = process.env.NEON_DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL_UNPOOLED;
 if (!connectionString) {
-  throw new Error("DATABASE_URL is required to run drizzle commands");
+  throw new Error("Set NEON_DATABASE_URL_UNPOOLED or DATABASE_URL_UNPOOLED before running Drizzle migrations.");
 }
 
 export default defineConfig({
-  schema: "./drizzle/schema.ts",
+  schema: "./lib/schema.ts",
   out: "./drizzle",
-  dialect: "mysql",
+  dialect: "postgresql",
   dbCredentials: {
     url: connectionString,
   },

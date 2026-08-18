@@ -1,0 +1,25 @@
+# Project TODO
+
+- [x] Replace the starter stack with the latest stable Next.js App Router application structure.
+- [x] Install and configure the latest stable Better Auth with Google OAuth and single-owner access enforcement.
+- [x] Model persistent video entries, Markdown learning notes, topic tags, and image metadata.
+- [x] Implement ImageKit-based image uploads, optimized delivery, and per-entry image management, with a researched fallback only if required.
+- [x] Build the owner dashboard with responsive list/grid views, video thumbnail previews, dates, and search/filter controls.
+- [x] Build create, edit, and delete workflows for videos with title, unlisted YouTube URL, and topic tag.
+- [x] Build entry detail pages with a safe inline YouTube embed, Markdown editor with live preview, and image gallery.
+- [x] Use shadcn/ui components exclusively and apply the design quality guidance from tasteskill.dev.
+- [x] Add automated tests for access control and entry management, then verify responsive UI behavior.
+- [ ] Prepare setup documentation and save a final project checkpoint.
+- [x] Replace pnpm artifacts and scripts with Bun-based installation, testing, development, and lockfile workflows.
+- [x] Research and migrate to an independently deployable hosting, database, and workflow architecture with no runtime dependency on Manus services.
+- [x] Replace the managed MySQL driver layer with Drizzle ORM and externally configured Neon Postgres migrations.
+- [x] Add a responsive dashboard view switch with both card-grid and compact-list layouts.
+- [x] Surface Markdown write and live-preview controls within the entry detail workflow.
+- [x] Add owner-only entry CRUD tests and verify responsive behavior in the available standalone browser environment.
+- [x] Apply the reviewed Neon Postgres migration and add post-migration verification tooling; repeated sandbox TLS timeouts are documented for re-checking from the deployed environment.
+- [x] Add unit coverage for owner-scoped deletion and protected server-action behavior.
+- [x] Document an authenticated desktop and mobile verification path for dashboard and entry layouts.
+- [ ] Obtain a passing Neon schema verification from a network-capable environment before declaring the external database migration confirmed.
+- [x] Add unit tests showing protected server actions block unauthenticated or non-owner calls before journal mutations run.
+- [x] Add explicit signed-in non-owner and reference-image deletion authorization tests for protected journal actions.
+- [ ] Create a private GitHub repository and push the complete portable project without credentials or generated build artifacts.

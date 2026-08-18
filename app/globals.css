@@ -47,6 +47,27 @@
   --font-serif: "Newsreader", ui-serif, Georgia, serif;
 }
 
+.dark {
+  --background: oklch(0.18 0.018 265);
+  --foreground: oklch(0.96 0.006 75);
+  --card: oklch(0.225 0.018 265);
+  --card-foreground: oklch(0.96 0.006 75);
+  --popover: oklch(0.225 0.018 265);
+  --popover-foreground: oklch(0.96 0.006 75);
+  --primary: oklch(0.76 0.14 272);
+  --primary-foreground: oklch(0.17 0.018 265);
+  --secondary: oklch(0.27 0.018 265);
+  --secondary-foreground: oklch(0.93 0.008 75);
+  --muted: oklch(0.25 0.016 265);
+  --muted-foreground: oklch(0.72 0.018 265);
+  --accent: oklch(0.32 0.06 272);
+  --accent-foreground: oklch(0.95 0.006 75);
+  --destructive: oklch(0.66 0.19 28);
+  --border: oklch(0.34 0.018 265);
+  --input: oklch(0.34 0.018 265);
+  --ring: oklch(0.7 0.14 272);
+}
+
 * { border-color: var(--border); }
 
 html { background: var(--background); }
@@ -82,6 +103,13 @@ button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
 .markdown-body img { display: block; max-width: 100%; border: 1px solid var(--border); border-radius: 0.65rem; background: var(--muted); }
 .markdown-body hr { border: 0; border-top: 1px solid var(--border); }
 .markdown-body del { color: var(--muted-foreground); }
+
+.dark ::selection { background: oklch(0.48 0.14 272); color: oklch(0.98 0.004 75); }
+.dark .paper-grid { background-image: linear-gradient(to right, oklch(0.38 0.018 265 / 0.35) 1px, transparent 1px), linear-gradient(to bottom, oklch(0.38 0.018 265 / 0.35) 1px, transparent 1px); }
+.dark .markdown-body { color: oklch(0.84 0.012 265); }
+.dark .markdown-body p code, .dark .markdown-body li code { background: oklch(0.29 0.05 272); color: oklch(0.9 0.06 272); }
+.dark .markdown-body pre { background: oklch(0.145 0.018 265); color: oklch(0.94 0.01 75); }
+.dark .markdown-body a { color: oklch(0.77 0.13 272); }
 
 @media (prefers-reduced-motion: no-preference) {
   a, button, input, textarea, select { transition: color 160ms cubic-bezier(0.23, 1, 0.32, 1), background-color 160ms cubic-bezier(0.23, 1, 0.32, 1), border-color 160ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 160ms cubic-bezier(0.23, 1, 0.32, 1), transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }

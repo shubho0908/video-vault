@@ -3,6 +3,7 @@ import { BookOpenText, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function JournalShell({
   children,
@@ -21,6 +22,7 @@ export function JournalShell({
           </Link>
           <div className="flex items-center gap-1 sm:gap-3">
             <span className="hidden max-w-40 truncate text-sm text-muted-foreground md:block">{userName}</span>
+            <ThemeToggle />
             <Button asChild size="sm" className="rounded-lg">
               <Link href="/entries/new"><Plus /> New entry</Link>
             </Button>

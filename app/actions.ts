@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { removeImageKitAsset } from "@/lib/imagekit";
+import { createSignedImageKitUrl, removeImageKitAsset } from "@/lib/imagekit";
 import {
   addEntryImage,
   createEntry,
@@ -14,7 +14,7 @@ import {
 } from "@/lib/journal";
 import { requireOwner } from "@/lib/session";
 
-type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
+type ActionResult = { ok: true; id?: string; signedUrl?: string } | { ok: false; error: string };
 
 function messageFromError(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong. Please try again.";
@@ -58,7 +58,7 @@ export async function attachImageAction(input: unknown): Promise<ActionResult> {
     const image = await addEntryImage(session.user.id, values);
     revalidatePath(`/entries/${image.entryId}`);
     revalidatePath(`/entries/${image.entryId}/edit`);
-    return { ok: true, id: image.id };
+    return { ok: true, id: image.id, signedUrl: createSignedImageKitUrl(image.filePath) };
   } catch (error) {
     return { ok: false, error: messageFromError(error) };
   }

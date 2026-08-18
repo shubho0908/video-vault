@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+const currentHref = (pathname: string, searchParams: URLSearchParams) => `${pathname}${searchParams.size ? `?${searchParams}` : ""}`;
+
 export function DashboardFilter({ topics }: { topics: string[] }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -18,7 +20,8 @@ export function DashboardFilter({ topics }: { topics: string[] }) {
       const params = new URLSearchParams(searchParams.toString());
       const normalized = query.trim();
       if (normalized) params.set("q", normalized); else params.delete("q");
-      router.replace(`${pathname}${params.size ? `?${params}` : ""}`);
+      const next = currentHref(pathname, params);
+      if (next !== currentHref(pathname, searchParams)) router.replace(next);
     }, 260);
     return () => window.clearTimeout(timer);
   }, [pathname, query, router, searchParams]);
@@ -26,7 +29,8 @@ export function DashboardFilter({ topics }: { topics: string[] }) {
   function updateTopic(value: string) {
     const params = new URLSearchParams(searchParams.toString());
     if (value === "all") params.delete("topic"); else params.set("topic", value);
-    router.replace(`${pathname}${params.size ? `?${params}` : ""}`);
+    const next = currentHref(pathname, params);
+    if (next !== currentHref(pathname, searchParams)) router.replace(next);
   }
 
   return (

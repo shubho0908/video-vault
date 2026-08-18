@@ -79,6 +79,9 @@ button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
 .markdown-body ol { list-style: decimal; padding-left: 1.4rem; }
 .markdown-body blockquote { border-left: 3px solid oklch(0.55 0.12 272); padding-left: 1rem; color: var(--muted-foreground); font-family: var(--font-serif); font-size: 1.1rem; }
 .markdown-body a { color: oklch(0.4 0.14 272); text-decoration: underline; text-underline-offset: 0.18em; }
+.markdown-body img { display: block; max-width: 100%; border: 1px solid var(--border); border-radius: 0.65rem; background: var(--muted); }
+.markdown-body hr { border: 0; border-top: 1px solid var(--border); }
+.markdown-body del { color: var(--muted-foreground); }
 
 @media (prefers-reduced-motion: no-preference) {
   a, button, input, textarea, select { transition: color 160ms cubic-bezier(0.23, 1, 0.32, 1), background-color 160ms cubic-bezier(0.23, 1, 0.32, 1), border-color 160ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 160ms cubic-bezier(0.23, 1, 0.32, 1), transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }

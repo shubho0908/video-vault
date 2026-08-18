@@ -2,18 +2,17 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, FileText, LoaderCircle, Save, Video } from "lucide-react";
+import { LoaderCircle, Save, Video } from "lucide-react";
 import { useState, useTransition } from "react";
-import ReactMarkdown from "react-markdown";
 
 import { saveEntryAction } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/components/journal/markdown-editor";
 import type { JournalEntry } from "@/lib/journal";
+import type { NoteImageReference } from "@/lib/markdown";
 import { getYouTubeThumbnail } from "@/lib/youtube";
 
 type FormState = {
@@ -36,7 +35,7 @@ function youtubeId(value: string) {
   }
 }
 
-export function EntryForm({ entry }: { entry?: JournalEntry }) {
+export function EntryForm({ entry, imageRefs = [] }: { entry?: JournalEntry; imageRefs?: NoteImageReference[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -73,11 +72,7 @@ export function EntryForm({ entry }: { entry?: JournalEntry }) {
             <div className="grid gap-2"><Label htmlFor="title">Title</Label><Input id="title" value={values.title} onChange={(event) => update("title", event.target.value)} placeholder="What did you explain?" autoFocus /></div>
             <div className="grid gap-2"><Label htmlFor="url">Unlisted YouTube URL</Label><Input id="url" type="url" value={values.youtubeUrl} onChange={(event) => update("youtubeUrl", event.target.value)} placeholder="https://youtu.be/..." /></div>
             <div className="grid gap-2"><Label htmlFor="topic">Topic</Label><Input id="topic" value={values.topic} onChange={(event) => update("topic", event.target.value)} placeholder="React, JavaScript, Computer networks..." /></div>
-            <Tabs defaultValue="write" className="mt-1">
-              <div className="mb-3 flex items-center justify-between gap-4"><Label>Learning notes</Label><TabsList className="h-8 rounded-md"><TabsTrigger value="write" className="gap-1.5 text-xs"><FileText className="size-3.5" /> Write</TabsTrigger><TabsTrigger value="preview" className="gap-1.5 text-xs"><Eye className="size-3.5" /> Preview</TabsTrigger></TabsList></div>
-              <TabsContent value="write"><Textarea value={values.notesMarkdown} onChange={(event) => update("notesMarkdown", event.target.value)} placeholder="# What I learned\n\nWrite the ideas, steps, and questions worth revisiting..." className="min-h-[430px] resize-y font-mono text-[13px] leading-6" /></TabsContent>
-              <TabsContent value="preview"><div className="min-h-[430px] rounded-md border border-input bg-background px-4 py-4 sm:px-6"><article className="markdown-body">{values.notesMarkdown ? <ReactMarkdown>{values.notesMarkdown}</ReactMarkdown> : <p className="text-muted-foreground">Your Markdown preview will appear here.</p>}</article></div></TabsContent>
-            </Tabs>
+            <div className="mt-1 grid gap-3"><div className="flex items-center justify-between gap-4"><Label>Learning notes</Label><span className="text-xs text-muted-foreground">Markdown · blocks · private images</span></div><MarkdownEditor value={values.notesMarkdown} onChangeAction={(notesMarkdown) => update("notesMarkdown", notesMarkdown)} entryId={entry?.id} images={imageRefs} minHeightClassName="min-h-[430px]" /></div>
           </div>
           {error ? <p className="mt-5 rounded-md border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p> : null}
           <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><Button asChild variant="ghost" disabled={pending}><Link href={entry ? `/entries/${entry.id}` : "/dashboard"}>Cancel</Link></Button><Button onClick={submit} disabled={pending} className="rounded-lg">{pending ? <LoaderCircle className="animate-spin" /> : <Save />}{entry ? "Save changes" : "Create entry"}</Button></div>

@@ -8,23 +8,22 @@ const mocks = vi.hoisted(() => ({
   addEntryImage: vi.fn(),
   deleteEntryImage: vi.fn(),
   removeImageKitAsset: vi.fn(),
+  createSignedImageKitUrl: vi.fn(),
   revalidatePath: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("@/lib/session", () => ({ requireOwner: mocks.requireOwner }));
-vi.mock("@/lib/imagekit", () => ({ removeImageKitAsset: mocks.removeImageKitAsset }));
-vi.mock("@/lib/journal", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/journal")>("@/lib/journal");
-  return {
-    ...actual,
-    createEntry: mocks.createEntry,
-    updateEntry: mocks.updateEntry,
-    deleteEntry: mocks.deleteEntry,
-    addEntryImage: mocks.addEntryImage,
-    deleteEntryImage: mocks.deleteEntryImage,
-  };
-});
+vi.mock("@/lib/imagekit", () => ({ removeImageKitAsset: mocks.removeImageKitAsset, createSignedImageKitUrl: mocks.createSignedImageKitUrl }));
+vi.mock("@/lib/journal", () => ({
+  entryInputSchema: { parse: (input: unknown) => input },
+  imageInputSchema: { parse: (input: unknown) => input },
+  createEntry: mocks.createEntry,
+  updateEntry: mocks.updateEntry,
+  deleteEntry: mocks.deleteEntry,
+  addEntryImage: mocks.addEntryImage,
+  deleteEntryImage: mocks.deleteEntryImage,
+}));
 
 import { attachImageAction, deleteEntryAction, deleteEntryImageAction, saveEntryAction } from "@/app/actions";
 
@@ -39,6 +38,7 @@ describe("protected journal server actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.removeImageKitAsset.mockResolvedValue(undefined);
+    mocks.createSignedImageKitUrl.mockReturnValue("https://ik.example/private-image.png?ik-s=signature");
   });
 
   it("blocks an unauthenticated save before any entry mutation", async () => {
@@ -92,6 +92,21 @@ describe("protected journal server actions", () => {
 
     expect(result).toEqual({ ok: false, error: "restricted" });
     expect(mocks.addEntryImage).not.toHaveBeenCalled();
+  });
+
+  it("returns a private signed URL after attaching an entry-owned image", async () => {
+    mocks.requireOwner.mockResolvedValueOnce({ user: { id: "owner-1" } });
+    mocks.addEntryImage.mockResolvedValueOnce({ id: "image-1", entryId: "f4f681ca-eaeb-4e9a-b606-b9338ffdbb94", filePath: "/journal/image.png" });
+
+    const result = await attachImageAction({
+      entryId: "f4f681ca-eaeb-4e9a-b606-b9338ffdbb94",
+      fileId: "file-1",
+      filePath: "/journal/image.png",
+      url: "https://ik.imagekit.io/demo/journal/image.png",
+    });
+
+    expect(result).toEqual({ ok: true, id: "image-1", signedUrl: "https://ik.example/private-image.png?ik-s=signature" });
+    expect(mocks.createSignedImageKitUrl).toHaveBeenCalledWith("/journal/image.png");
   });
 
   it("blocks an unauthenticated reference-image deletion before database or ImageKit cleanup", async () => {

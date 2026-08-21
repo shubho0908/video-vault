@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LockKeyhole, Sparkles } from "lucide-react";
 
@@ -34,6 +35,16 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
             </p>
           ) : null}
           <div className="mt-8"><SignInButton /></div>
+          <p className="mt-4 text-center text-xs leading-5 text-muted-foreground">
+            By continuing, you agree to our{" "}
+            <Link href="/terms" className="underline decoration-border underline-offset-2 transition-colors hover:text-foreground">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="underline decoration-border underline-offset-2 transition-colors hover:text-foreground">
+              Privacy Policy
+            </Link>.
+          </p>
           <div className="mt-8 space-y-2.5 border-t border-border/60 pt-6">
             <p className="flex items-center gap-2 text-xs leading-5 text-muted-foreground">
               <LockKeyhole className="size-3.5 shrink-0 text-primary/80" /> Owner-only access is verified after Google sign-in.

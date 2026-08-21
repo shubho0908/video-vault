@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     template: "%s · Shubhojeet's Videos",
   },
   description:
-    "Shubhojeet's private collection of unlisted YouTube explanations, notes, and references — built for learning that lasts.",
+    "Shubhojeet's private collection of unlisted YouTube explanations, notes, and references. Built for learning that lasts.",
   robots: { index: false, follow: false },
 };
 

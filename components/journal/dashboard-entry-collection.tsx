@@ -6,6 +6,7 @@ import { useCallback, useState } from "react";
 
 import { DeleteEntryButton } from "@/components/journal/delete-entry-button";
 import { DashboardViewSwitch, type DashboardView } from "@/components/journal/dashboard-view-switch";
+import { noteExcerpt } from "@/lib/markdown";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,7 +48,7 @@ export function DashboardEntryCollection({ entries }: { entries: DashboardEntry[
 function GridCard({ entry, index }: { entry: DashboardEntry; index: number }) {
   return (
     <Card
-      className={`reveal group overflow-hidden border-border/80 bg-card py-0 shadow-xs transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-border hover:shadow-[0_20px_50px_-24px_oklch(0.1_0.04_265_/_0.55)] ${index > 0 ? `reveal-d${Math.min(index, 5)}` : ""}`}
+      className={`reveal group overflow-hidden border-border/80 bg-card py-0 shadow-xs transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-border hover:shadow-[0_10px_28px_-16px_oklch(0.1_0.04_265_/_0.25)] ${index > 0 ? `reveal-d${Math.min(index, 5)}` : ""}`}
     >
       <Link href={`/entries/${entry.id}`} className="relative block overflow-hidden bg-muted" aria-label={entry.title}>
         <img
@@ -104,9 +105,11 @@ function ListRow({ entry }: { entry: DashboardEntry }) {
             {entry.title}
           </h2>
         </Link>
-        <p className="mt-1 hidden line-clamp-1 text-sm text-muted-foreground sm:block">
-          {entry.notesMarkdown || "No learning notes added yet."}
-        </p>
+        <div className="mt-1 hidden sm:block">
+          <p className="line-clamp-1 text-sm text-muted-foreground">
+            {noteExcerpt(entry.notesMarkdown) || "No learning notes added yet."}
+          </p>
+        </div>
       </div>
       <div className="flex shrink-0 items-center gap-1">
         <Button asChild variant="ghost" size="icon-sm" className="hidden text-muted-foreground group-hover:text-primary sm:inline-flex" aria-label={`Open ${entry.title}`}>

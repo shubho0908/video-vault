@@ -4,7 +4,7 @@ Date: 2026-08-21 · Branch: `redesign/premium-ui`
 
 ## Goal
 
-Revamp the entire Learning Video Vault UI from a "quiet editorial workspace" into a **dark-tech premium** product interface (Linear/Vercel family): near-black layered surfaces, one restrained accent, crisp sans typography, hairline borders, tinted shadows, subtle texture, and precise micro-motion. All existing logic, data flow, and routes stay untouched.
+Revamp the entire Shubhojeet's Videos UI from a "quiet editorial workspace" into a **dark-tech premium** product interface (Linear/Vercel family): near-black layered surfaces, one restrained accent, crisp sans typography, hairline borders, tinted shadows, subtle texture, and precise micro-motion. All existing logic, data flow, and routes stay untouched.
 
 ## Decisions (approved)
 

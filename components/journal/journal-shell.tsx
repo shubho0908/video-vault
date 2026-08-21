@@ -24,7 +24,7 @@ export function JournalShell({
           >
             <VaultMark className="transition-transform duration-300 group-hover:scale-105" />
             <span className="hidden sm:inline">
-              Learning Video <span className="text-primary">Vault</span>
+              Shubhojeet's <span className="text-primary">Videos</span>
             </span>
           </Link>
           <div className="flex items-center gap-1 sm:gap-2">

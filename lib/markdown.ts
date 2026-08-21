@@ -29,3 +29,19 @@ export function resolveNoteImageReferences(markdown: string, images: NoteImageRe
     return `*[Image unavailable: ${label}]*`;
   });
 }
+
+/** Collapse markdown to a single-line plain-text excerpt for list previews. */
+export function noteExcerpt(markdown: string, max = 160): string {
+  const plain = markdown
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^[-+*]\s+/gm, "")
+    .replace(/[*_~>|]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (plain.length <= max) return plain;
+  return `${plain.slice(0, max).trimEnd()}…`;
+}

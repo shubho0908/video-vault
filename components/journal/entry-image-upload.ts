@@ -45,7 +45,7 @@ export async function uploadEntryImage(entryId: string, file: File): Promise<Upl
     formData.append("folder", credentials.folder);
     formData.append("useUniqueFileName", "true");
     formData.append("isPrivateFile", "true");
-    formData.append("tags", "learning-video-vault");
+    formData.append("tags", "shubhojeets-videos");
 
     const uploadResponse = await fetch("https://upload.imagekit.io/api/v1/files/upload", { method: "POST", body: formData });
     if (!uploadResponse.ok) throw new Error("ImageKit could not upload this image.");

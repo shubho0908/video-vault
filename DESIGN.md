@@ -1,4 +1,4 @@
-# Learning Video Vault Design Standard
+# Shubhojeet's Videos Design Standard
 
 The interface is a **dark-tech premium** product surface in the Linear/Vercel family. Dark is the flagship theme; a light theme shares the same hue family and quality bar, switchable from the header.
 

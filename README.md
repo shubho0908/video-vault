@@ -1,6 +1,6 @@
-# Learning Video Vault
+# Shubhojeet's Videos
 
-Learning Video Vault is an independently deployable, **single-owner video learning journal**. It lets one approved Google account save unlisted YouTube explanations, write Markdown notes with live preview, and attach private ImageKit reference images.
+Shubhojeet's Videos is an independently deployable, **single-owner video learning journal**. It lets one approved Google account save unlisted YouTube explanations, write Markdown notes with live preview, and attach private ImageKit reference images.
 
 ## Independent architecture
 

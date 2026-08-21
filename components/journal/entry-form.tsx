@@ -66,21 +66,21 @@ export function EntryForm({ entry, imageRefs = [] }: { entry?: JournalEntry; ima
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
-      <Card className="border-border/80 bg-card/95 py-0 shadow-sm">
+      <Card className="hairline-top border-border/80 bg-card/80 py-0 shadow-xs backdrop-blur-sm">
         <CardContent className="p-5 sm:p-7">
           <div className="grid gap-5">
             <div className="grid gap-2"><Label htmlFor="title">Title</Label><Input id="title" value={values.title} onChange={(event) => update("title", event.target.value)} placeholder="What did you explain?" autoFocus /></div>
             <div className="grid gap-2"><Label htmlFor="url">Unlisted YouTube URL</Label><Input id="url" type="url" value={values.youtubeUrl} onChange={(event) => update("youtubeUrl", event.target.value)} placeholder="https://youtu.be/..." /></div>
             <div className="grid gap-2"><Label htmlFor="topic">Topic</Label><Input id="topic" value={values.topic} onChange={(event) => update("topic", event.target.value)} placeholder="React, JavaScript, Computer networks..." /></div>
-            <div className="mt-1 grid gap-3"><div className="flex items-center justify-between gap-4"><Label>Learning notes</Label><span className="text-xs text-muted-foreground">Markdown · blocks · private images</span></div><MarkdownEditor value={values.notesMarkdown} onChangeAction={(notesMarkdown) => update("notesMarkdown", notesMarkdown)} entryId={entry?.id} images={imageRefs} minHeightClassName="min-h-[430px]" /></div>
+            <div className="mt-1 grid gap-3"><div className="flex items-center justify-between gap-4"><Label>Learning notes</Label><span className="font-mono text-xs text-muted-foreground">Markdown · blocks · private images</span></div><MarkdownEditor value={values.notesMarkdown} onChangeAction={(notesMarkdown) => update("notesMarkdown", notesMarkdown)} entryId={entry?.id} images={imageRefs} minHeightClassName="min-h-[430px]" /></div>
           </div>
-          {error ? <p className="mt-5 rounded-md border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p> : null}
-          <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><Button asChild variant="ghost" disabled={pending}><Link href={entry ? `/entries/${entry.id}` : "/dashboard"}>Cancel</Link></Button><Button onClick={submit} disabled={pending} className="rounded-lg">{pending ? <LoaderCircle className="animate-spin" /> : <Save />}{entry ? "Save changes" : "Create entry"}</Button></div>
+          {error ? <p role="alert" className="mt-5 rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p> : null}
+          <div className="mt-7 flex flex-col-reverse gap-3 border-t border-border/60 pt-6 sm:flex-row sm:justify-end"><Button asChild variant="ghost" disabled={pending}><Link href={entry ? `/entries/${entry.id}` : "/dashboard"}>Cancel</Link></Button><Button onClick={submit} disabled={pending}>{pending ? <LoaderCircle className="animate-spin" /> : <Save />}{entry ? "Save changes" : "Create entry"}</Button></div>
         </CardContent>
       </Card>
-      <aside className="space-y-5">
-        <div className="rounded-xl border border-border/75 bg-card/75 p-5"><div className="mb-3 flex items-center gap-2 text-sm font-medium"><Video className="size-4 text-primary" /> Video preview</div>{id ? <div className="overflow-hidden rounded-lg border border-border bg-muted"><img src={getYouTubeThumbnail(id)} alt="YouTube thumbnail preview" className="aspect-video w-full object-cover" /></div> : <div className="grid aspect-video place-items-center rounded-lg border border-dashed border-border bg-muted/40 px-5 text-center text-sm leading-5 text-muted-foreground">Paste a valid YouTube URL to preview its thumbnail.</div>}</div>
-        <div className="rounded-xl border border-border/75 bg-card/75 p-5 text-sm leading-6 text-muted-foreground"><p className="font-medium text-foreground">A note on reference images</p><p className="mt-2">{entry ? "Save your changes, then add private reference images from the edit page." : "Create this entry first. You can then attach private reference images from its edit page."}</p></div>
+      <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
+        <div className="rounded-xl border border-border/75 bg-card/60 p-5 hairline-top"><div className="mb-3 flex items-center gap-2 text-sm font-medium"><Video className="size-4 text-primary" /> Video preview</div>{id ? <div className="overflow-hidden rounded-lg border border-border bg-muted"><img src={getYouTubeThumbnail(id)} alt="YouTube thumbnail preview" className="aspect-video w-full object-cover" /></div> : <div className="grid aspect-video place-items-center rounded-lg border border-dashed border-border bg-muted/40 px-5 text-center text-sm leading-5 text-muted-foreground">Paste a valid YouTube URL to preview its thumbnail.</div>}</div>
+        <div className="rounded-xl border border-border/75 bg-card/60 p-5 text-sm leading-6 text-muted-foreground hairline-top"><p className="font-medium text-foreground">A note on reference images</p><p className="mt-2">{entry ? "Save your changes, then add private reference images from the edit page." : "Create this entry first. You can then attach private reference images from its edit page."}</p></div>
       </aside>
     </div>
   );

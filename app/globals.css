@@ -193,6 +193,26 @@ html { scrollbar-width: thin; scrollbar-color: var(--input) transparent; }
   line-height: 1.65;
 }
 .markdown-body pre code { font-family: var(--font-mono); }
+
+/* Syntax highlighting (rehype-highlight / highlight.js classes). The fenced-code
+   background is dark navy in both themes, so a single dark-editor palette covers both. */
+.markdown-body .hljs-comment, .markdown-body .hljs-quote { color: oklch(0.72 0.02 260); font-style: italic; }
+.markdown-body .hljs-keyword, .markdown-body .hljs-selector-tag, .markdown-body .hljs-literal,
+.markdown-body .hljs-doctag, .markdown-body .hljs-formula { color: oklch(0.78 0.14 305); }
+.markdown-body .hljs-string, .markdown-body .hljs-regexp, .markdown-body .hljs-addition,
+.markdown-body .hljs-meta .hljs-string { color: oklch(0.85 0.15 155); }
+.markdown-body .hljs-number, .markdown-body .hljs-symbol, .markdown-body .hljs-bullet,
+.markdown-body .hljs-variable, .markdown-body .hljs-template-variable, .markdown-body .hljs-link { color: oklch(0.83 0.13 70); }
+.markdown-body .hljs-attr, .markdown-body .hljs-property, .markdown-body .hljs-attribute,
+.markdown-body .hljs-selector-attr, .markdown-body .hljs-selector-class, .markdown-body .hljs-selector-id { color: oklch(0.82 0.11 225); }
+.markdown-body .hljs-title, .markdown-body .hljs-title.function_, .markdown-body .hljs-section,
+.markdown-body .hljs-name { color: oklch(0.85 0.12 250); }
+.markdown-body .hljs-title.class_, .markdown-body .hljs-type, .markdown-body .hljs-built_in,
+.markdown-body .hljs-class .hljs-title { color: oklch(0.86 0.13 195); }
+.markdown-body .hljs-meta, .markdown-body .hljs-punctuation { color: oklch(0.75 0.03 260); }
+.markdown-body .hljs-deletion { color: oklch(0.78 0.16 20); }
+.markdown-body .hljs-emphasis { font-style: italic; }
+.markdown-body .hljs-strong { font-weight: 600; }
 .markdown-body ul { list-style: disc; padding-left: 1.4rem; }
 .markdown-body ol { list-style: decimal; padding-left: 1.4rem; }
 .markdown-body li + li { margin-top: 0.3rem; }

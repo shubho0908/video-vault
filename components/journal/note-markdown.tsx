@@ -1,5 +1,6 @@
 import { Children, type ComponentPropsWithoutRef } from "react";
 import ReactMarkdown from "react-markdown";
+import rehypeHighlight from "rehype-highlight";
 
 import { resolveNoteImageReferences, type NoteImageReference } from "@/lib/markdown";
 
@@ -23,5 +24,5 @@ function MarkdownListItem({ children, node: _node, ...props }: ComponentPropsWit
 export function NoteMarkdown({ markdown, images = [], emptyMessage = "No notes added yet.", className = "markdown-body" }: NoteMarkdownProps) {
   if (!markdown) return <p className="text-muted-foreground">{emptyMessage}</p>;
 
-  return <article className={className}><ReactMarkdown components={{ li: MarkdownListItem }}>{resolveNoteImageReferences(markdown, images)}</ReactMarkdown></article>;
+  return <article className={className}><ReactMarkdown components={{ li: MarkdownListItem }} rehypePlugins={[rehypeHighlight]}>{resolveNoteImageReferences(markdown, images)}</ReactMarkdown></article>;
 }

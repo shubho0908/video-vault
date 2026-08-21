@@ -19,4 +19,13 @@ describe("note Markdown rendering", () => {
     expect(markup).toContain("Image unavailable: Old diagram");
     expect(markup).not.toContain("<img");
   });
+
+  it("syntax-highlights fenced code blocks", () => {
+    const markdown = "```ts\nconst retries = 3; // attempt\n```";
+    const markup = renderToStaticMarkup(createElement(NoteMarkdown, { markdown }));
+
+    expect(markup).toContain("hljs language-ts");
+    expect(markup).toContain("hljs-keyword");
+    expect(markup).toContain("hljs-comment");
+  });
 });

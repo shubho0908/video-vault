@@ -14,11 +14,11 @@ export function DashboardViewSwitch({ value, onChange }: { value: DashboardView;
 
   function choose(view: DashboardView) {
     onChange(view);
-    window.localStorage.setItem("learning-video-vault:view", view);
+    window.localStorage.setItem("shubhojeets-videos:view", view);
   }
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("learning-video-vault:view");
+    const saved = window.localStorage.getItem("shubhojeets-videos:view");
     if (saved === "grid" || saved === "list") onChange(saved);
   }, [onChange]);
 

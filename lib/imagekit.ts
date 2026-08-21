@@ -28,7 +28,7 @@ export function createImageKitUploadCredentials(entryId: string) {
     signature,
     publicKey,
     urlEndpoint,
-    folder: `/learning-video-vault/${entryId}`,
+    folder: `/shubhojeets-videos/${entryId}`,
   };
 }
 

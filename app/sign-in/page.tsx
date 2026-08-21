@@ -18,7 +18,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
           <div className="mb-8 flex items-center gap-3">
             <VaultMark className="size-10 rounded-xl" />
             <div>
-              <p className="text-sm font-medium leading-none tracking-tight">Learning Video Vault</p>
+              <p className="text-sm font-medium leading-none tracking-tight">Shubhojeet's Videos</p>
               <p className="mt-1.5 font-mono text-xs text-muted-foreground">Private learning journal</p>
             </div>
           </div>

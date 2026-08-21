@@ -10,10 +10,11 @@ const serif = Newsreader({ variable: "--font-newsreader", subsets: ["latin"], st
 
 export const metadata: Metadata = {
   title: {
-    default: "Learning Video Vault",
-    template: "%s · Learning Video Vault",
+    default: "Shubhojeet's Videos",
+    template: "%s · Shubhojeet's Videos",
   },
-  description: "A private journal for video-based learning.",
+  description:
+    "Shubhojeet's private collection of unlisted YouTube explanations, notes, and references — built for learning that lasts.",
   robots: { index: false, follow: false },
 };
 

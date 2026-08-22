@@ -13,6 +13,29 @@ describe("note Markdown rendering", () => {
     expect(markup).toContain("✓");
   });
 
+  it("renders remark-gfm task lists as an accessible task row without a raw checkbox input", () => {
+    const markup = renderToStaticMarkup(createElement(NoteMarkdown, { markdown: "- [ ] Watch the talk\n- [x] Take notes" }));
+
+    expect(markup).toContain('aria-label="Incomplete task"');
+    expect(markup).toContain('aria-label="Completed task"');
+    expect(markup).not.toContain("<input");
+  });
+
+  it("renders GFM pipe tables as a real table with headers", () => {
+    const markdown = "| Concept | Status |\n| --- | --- |\n| Sharding | learning |";
+    const markup = renderToStaticMarkup(createElement(NoteMarkdown, { markdown }));
+
+    expect(markup).toContain("<table");
+    expect(markup).toContain("<th>Concept</th>");
+    expect(markup).toContain("<td>Sharding</td>");
+  });
+
+  it("renders GFM strikethrough as a del element", () => {
+    const markup = renderToStaticMarkup(createElement(NoteMarkdown, { markdown: "~~outdated plan~~ new plan" }));
+
+    expect(markup).toContain("<del>outdated plan</del>");
+  });
+
   it("renders a deleted private image as text instead of an image with an empty source", () => {
     const markup = renderToStaticMarkup(createElement(NoteMarkdown, { markdown: "![Old diagram](imagekit://deleted-image)" }));
 

@@ -226,6 +226,17 @@ html { scrollbar-width: thin; scrollbar-color: var(--input) transparent; }
 .markdown-body img { display: block; max-width: 100%; border: 1px solid var(--border); border-radius: 0.65rem; background: var(--muted); }
 .markdown-body hr { border: 0; border-top: 1px solid var(--border); }
 .markdown-body del { color: var(--muted-foreground); }
+.markdown-body table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+.markdown-body th, .markdown-body td { border: 1px solid var(--border); padding: 0.45rem 0.8rem; text-align: left; vertical-align: top; }
+.markdown-body thead th { background: var(--muted); color: var(--foreground); font-weight: 600; }
+.markdown-body tbody tr:nth-child(even) { background: color-mix(in oklab, var(--muted) 40%, transparent); }
 
 .dark .markdown-body pre { background: oklch(0.132 0.014 265); }
 

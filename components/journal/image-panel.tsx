@@ -69,7 +69,7 @@ export function ImagePanel({
 
   function removeImage(imageId: string) {
     startDeleting(async () => {
-      const result = await deleteEntryImageAction(imageId, entryId);
+      const result = await deleteEntryImageAction(imageId);
       if (!result.ok) {
         setError(result.error);
         return;

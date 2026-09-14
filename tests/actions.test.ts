@@ -155,12 +155,33 @@ describe("protected journal server actions", () => {
   it("blocks an unauthenticated reference-image deletion before database or ImageKit cleanup", async () => {
     mocks.requireOwner.mockRejectedValueOnce(new Error("restricted"));
 
-    const result = await deleteEntryImageAction("image-1", "entry-1");
+    const result = await deleteEntryImageAction("image-1");
 
     expect(result).toEqual({ ok: false, error: "restricted" });
     expect(mocks.deleteEntryImage).not.toHaveBeenCalled();
     expect(mocks.removeImageKitAsset).not.toHaveBeenCalled();
   });
+  it("invalidates the deleted image's authoritative entry instead of caller input", async () => {
+    mocks.requireOwner.mockResolvedValueOnce({ user: { id: "owner-1" } });
+    mocks.deleteEntryImage.mockResolvedValueOnce({
+      fileId: "file-1",
+      entryId: "entry-authoritative",
+    });
+
+    await expect(deleteEntryImageAction("image-1")).resolves.toEqual({
+      ok: true,
+    });
+    expect(mocks.updateTag).toHaveBeenCalledWith(
+      "journal:owner-1:entry:entry-authoritative"
+    );
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(
+      "/entries/entry-authoritative"
+    );
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(
+      "/entries/entry-authoritative/edit"
+    );
+  });
+
   it("invalidates only the current owner's playlist caches after a playlist save", async () => {
     mocks.requireOwner.mockResolvedValueOnce({ user: { id: "owner-a" } });
     mocks.createPlaylist.mockResolvedValueOnce({ id: "playlist-1" });

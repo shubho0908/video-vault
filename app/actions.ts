@@ -96,16 +96,15 @@ export async function attachImageAction(input: unknown): Promise<ActionResult> {
 }
 
 export async function deleteEntryImageAction(
-  imageId: string,
-  entryId: string
+  imageId: string
 ): Promise<ActionResult> {
   try {
     const session = await requireOwner();
     const image = await deleteEntryImage(session.user.id, imageId);
     await removeImageKitAsset(image.fileId).catch(() => undefined);
-    updateTag(entryTag(session.user.id, entryId));
-    revalidatePath(`/entries/${entryId}`);
-    revalidatePath(`/entries/${entryId}/edit`);
+    updateTag(entryTag(session.user.id, image.entryId));
+    revalidatePath(`/entries/${image.entryId}`);
+    revalidatePath(`/entries/${image.entryId}/edit`);
     return { ok: true };
   } catch (error) {
     return { ok: false, error: messageFromError(error) };

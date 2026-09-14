@@ -18,6 +18,7 @@ import {
 } from "@/lib/cache-tags";
 
 const HOUR = 3600;
+const CACHE_FORMAT_VERSION = "v2-date-tags";
 const DATE_MARKER = "__videoVaultDate";
 
 type EncodedDate = { [DATE_MARKER]: string };
@@ -65,7 +66,7 @@ async function cached<T>(
 ): Promise<T> {
   const encoded = await unstable_cache(
     async () => serializeCacheValue(await read()),
-    key,
+    [CACHE_FORMAT_VERSION, ...key],
     { revalidate: HOUR, tags }
   )();
   return reviveCacheValue(encoded) as T;

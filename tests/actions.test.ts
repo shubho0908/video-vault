@@ -7,14 +7,24 @@ const mocks = vi.hoisted(() => ({
   deleteEntry: vi.fn(),
   addEntryImage: vi.fn(),
   deleteEntryImage: vi.fn(),
+  createPlaylist: vi.fn(),
+  updatePlaylist: vi.fn(),
+  deletePlaylist: vi.fn(),
   removeImageKitAsset: vi.fn(),
   createSignedImageKitUrl: vi.fn(),
   revalidatePath: vi.fn(),
+  updateTag: vi.fn(),
 }));
 
-vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
+vi.mock("next/cache", () => ({
+  revalidatePath: mocks.revalidatePath,
+  updateTag: mocks.updateTag,
+}));
 vi.mock("@/lib/session", () => ({ requireOwner: mocks.requireOwner }));
-vi.mock("@/lib/imagekit", () => ({ removeImageKitAsset: mocks.removeImageKitAsset, createSignedImageKitUrl: mocks.createSignedImageKitUrl }));
+vi.mock("@/lib/imagekit", () => ({
+  removeImageKitAsset: mocks.removeImageKitAsset,
+  createSignedImageKitUrl: mocks.createSignedImageKitUrl,
+}));
 vi.mock("@/lib/journal", () => ({
   entryInputSchema: { parse: (input: unknown) => input },
   imageInputSchema: { parse: (input: unknown) => input },
@@ -23,9 +33,20 @@ vi.mock("@/lib/journal", () => ({
   deleteEntry: mocks.deleteEntry,
   addEntryImage: mocks.addEntryImage,
   deleteEntryImage: mocks.deleteEntryImage,
+  playlistInputSchema: { parse: (input: unknown) => input },
+  createPlaylist: mocks.createPlaylist,
+  updatePlaylist: mocks.updatePlaylist,
+  deletePlaylist: mocks.deletePlaylist,
 }));
 
-import { attachImageAction, deleteEntryAction, deleteEntryImageAction, saveEntryAction } from "@/app/actions";
+import {
+  attachImageAction,
+  deleteEntryAction,
+  deleteEntryImageAction,
+  deletePlaylistAction,
+  saveEntryAction,
+  savePlaylistAction,
+} from "@/app/actions";
 
 const entryInput = {
   title: "Computer networks — TCP",
@@ -38,7 +59,9 @@ describe("protected journal server actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.removeImageKitAsset.mockResolvedValue(undefined);
-    mocks.createSignedImageKitUrl.mockReturnValue("https://ik.example/private-image.png?ik-s=signature");
+    mocks.createSignedImageKitUrl.mockReturnValue(
+      "https://ik.example/private-image.png?ik-s=signature"
+    );
   });
 
   it("blocks an unauthenticated save before any entry mutation", async () => {
@@ -59,14 +82,24 @@ describe("protected journal server actions", () => {
 
     expect(result).toEqual({ ok: true, id: "entry-1" });
     expect(mocks.createEntry).toHaveBeenCalledWith("owner-1", entryInput);
+    expect(mocks.updateTag).toHaveBeenCalledWith("journal:owner-1:entries");
+    expect(mocks.updateTag).toHaveBeenCalledWith("journal:owner-1:playlists");
+    expect(mocks.updateTag).toHaveBeenCalledWith(
+      "journal:owner-1:entry:entry-1"
+    );
   });
 
   it("blocks a signed-in non-owner before a save mutation runs", async () => {
-    mocks.requireOwner.mockRejectedValueOnce(new Error("restricted: owner email mismatch"));
+    mocks.requireOwner.mockRejectedValueOnce(
+      new Error("restricted: owner email mismatch")
+    );
 
     const result = await saveEntryAction("entry-1", entryInput);
 
-    expect(result).toEqual({ ok: false, error: "restricted: owner email mismatch" });
+    expect(result).toEqual({
+      ok: false,
+      error: "restricted: owner email mismatch",
+    });
     expect(mocks.updateEntry).not.toHaveBeenCalled();
   });
 
@@ -96,7 +129,11 @@ describe("protected journal server actions", () => {
 
   it("returns a private signed URL after attaching an entry-owned image", async () => {
     mocks.requireOwner.mockResolvedValueOnce({ user: { id: "owner-1" } });
-    mocks.addEntryImage.mockResolvedValueOnce({ id: "image-1", entryId: "f4f681ca-eaeb-4e9a-b606-b9338ffdbb94", filePath: "/journal/image.png" });
+    mocks.addEntryImage.mockResolvedValueOnce({
+      id: "image-1",
+      entryId: "f4f681ca-eaeb-4e9a-b606-b9338ffdbb94",
+      filePath: "/journal/image.png",
+    });
 
     const result = await attachImageAction({
       entryId: "f4f681ca-eaeb-4e9a-b606-b9338ffdbb94",
@@ -105,8 +142,14 @@ describe("protected journal server actions", () => {
       url: "https://ik.imagekit.io/demo/journal/image.png",
     });
 
-    expect(result).toEqual({ ok: true, id: "image-1", signedUrl: "https://ik.example/private-image.png?ik-s=signature" });
-    expect(mocks.createSignedImageKitUrl).toHaveBeenCalledWith("/journal/image.png");
+    expect(result).toEqual({
+      ok: true,
+      id: "image-1",
+      signedUrl: "https://ik.example/private-image.png?ik-s=signature",
+    });
+    expect(mocks.createSignedImageKitUrl).toHaveBeenCalledWith(
+      "/journal/image.png"
+    );
   });
 
   it("blocks an unauthenticated reference-image deletion before database or ImageKit cleanup", async () => {
@@ -117,5 +160,37 @@ describe("protected journal server actions", () => {
     expect(result).toEqual({ ok: false, error: "restricted" });
     expect(mocks.deleteEntryImage).not.toHaveBeenCalled();
     expect(mocks.removeImageKitAsset).not.toHaveBeenCalled();
+  });
+  it("invalidates only the current owner's playlist caches after a playlist save", async () => {
+    mocks.requireOwner.mockResolvedValueOnce({ user: { id: "owner-a" } });
+    mocks.createPlaylist.mockResolvedValueOnce({ id: "playlist-1" });
+
+    const result = await savePlaylistAction(null, {
+      name: "Path",
+      description: "",
+      entryIds: [],
+    });
+
+    expect(result).toEqual({ ok: true, id: "playlist-1" });
+    expect(mocks.updateTag).toHaveBeenCalledWith("journal:owner-a:playlists");
+    expect(mocks.updateTag).toHaveBeenCalledWith(
+      "journal:owner-a:playlist:playlist-1"
+    );
+    expect(mocks.updateTag).not.toHaveBeenCalledWith(
+      expect.stringContaining("owner-b")
+    );
+  });
+
+  it("invalidates list and detail caches immediately after playlist deletion", async () => {
+    mocks.requireOwner.mockResolvedValueOnce({ user: { id: "owner-a" } });
+    mocks.deletePlaylist.mockResolvedValueOnce(undefined);
+
+    await expect(deletePlaylistAction("playlist-1")).resolves.toEqual({
+      ok: true,
+    });
+    expect(mocks.updateTag).toHaveBeenCalledWith("journal:owner-a:playlists");
+    expect(mocks.updateTag).toHaveBeenCalledWith(
+      "journal:owner-a:playlist:playlist-1"
+    );
   });
 });

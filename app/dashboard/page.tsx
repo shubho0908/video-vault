@@ -11,7 +11,7 @@ import {
   listEntryChoices,
   listPlaylists,
   listTopics,
-} from "@/lib/journal";
+} from "@/lib/journal-cache";
 import { requireOwner } from "@/lib/session";
 
 export default async function DashboardPage({

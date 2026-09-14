@@ -1,4 +1,5 @@
 import { Children, isValidElement, type ComponentPropsWithoutRef, type ReactElement } from "react";
+import { Check } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -22,7 +23,7 @@ function MarkdownListItem({ children, node: _node, ...props }: ComponentPropsWit
 
   const complete = task ? task[1].toLowerCase() === "x" : Boolean(gfmCheckbox?.props.checked);
   const content = task ? <>{task[2]}{childNodes.slice(1)}</> : <>{childNodes.slice(1)}</>;
-  return <li {...props} className="-ml-5 flex list-none items-start gap-2"><span className={`mt-1 grid size-4 shrink-0 place-items-center rounded border text-[10px] ${complete ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/50"}`} role="img" aria-label={complete ? "Completed task" : "Incomplete task"}>{complete ? "✓" : ""}</span><span>{content}</span></li>;
+  return <li {...props} className="-ml-5 flex list-none items-start gap-2"><span className={`mt-1 grid size-4 shrink-0 place-items-center rounded border text-[10px] ${complete ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/50"}`} role="img" aria-label={complete ? "Completed task" : "Incomplete task"}>{complete ? <Check className="size-2.5" strokeWidth={3} /> : null}</span><span>{content}</span></li>;
 }
 
 export function NoteMarkdown({ markdown, images = [], emptyMessage = "No notes added yet.", className = "markdown-body" }: NoteMarkdownProps) {

@@ -1,13 +1,29 @@
 import { randomUUID } from "crypto";
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
-import { entryImages, videoEntries } from "@/lib/schema";
+import {
+  entryImages,
+  playlistEntries,
+  playlists,
+  videoEntries,
+} from "@/lib/schema";
 import { getYouTubeVideoId } from "@/lib/youtube";
 
 export type JournalEntry = typeof videoEntries.$inferSelect;
 export type EntryImage = typeof entryImages.$inferSelect;
+export type PlaylistEntryChoice = Pick<
+  JournalEntry,
+  "id" | "title" | "topic" | "youtubeId"
+>;
+
+const playlistEntryChoice = {
+  id: videoEntries.id,
+  title: videoEntries.title,
+  topic: videoEntries.topic,
+  youtubeId: videoEntries.youtubeId,
+};
 
 export const entryInputSchema = z.object({
   title: z.string().trim().min(1, "A title is required.").max(160),
@@ -36,11 +52,25 @@ export async function listEntries(ownerId: string, query = "", topic = "") {
   const conditions = [eq(videoEntries.ownerId, ownerId)];
   if (query.trim()) {
     const term = `%${query.trim()}%`;
-    conditions.push(or(ilike(videoEntries.title, term), ilike(videoEntries.topic, term))!);
+    conditions.push(
+      or(ilike(videoEntries.title, term), ilike(videoEntries.topic, term))!
+    );
   }
   if (topic.trim()) conditions.push(eq(videoEntries.topic, topic.trim()));
 
-  return db.select().from(videoEntries).where(and(...conditions)).orderBy(desc(videoEntries.updatedAt));
+  return db
+    .select()
+    .from(videoEntries)
+    .where(and(...conditions))
+    .orderBy(desc(videoEntries.updatedAt));
+}
+
+export async function listEntryChoices(ownerId: string) {
+  return db
+    .select(playlistEntryChoice)
+    .from(videoEntries)
+    .where(eq(videoEntries.ownerId, ownerId))
+    .orderBy(desc(videoEntries.updatedAt));
 }
 
 export async function listTopics(ownerId: string) {
@@ -49,7 +79,7 @@ export async function listTopics(ownerId: string) {
     .from(videoEntries)
     .where(eq(videoEntries.ownerId, ownerId))
     .orderBy(videoEntries.topic);
-  return rows.map((row) => row.topic);
+  return rows.map(row => row.topic);
 }
 
 export async function getEntryForOwner(ownerId: string, entryId: string) {
@@ -64,10 +94,17 @@ export async function getEntryForOwner(ownerId: string, entryId: string) {
 export async function getImagesForEntry(ownerId: string, entryId: string) {
   const entry = await getEntryForOwner(ownerId, entryId);
   if (!entry) return [];
-  return db.select().from(entryImages).where(eq(entryImages.entryId, entryId)).orderBy(entryImages.createdAt);
+  return db
+    .select()
+    .from(entryImages)
+    .where(eq(entryImages.entryId, entryId))
+    .orderBy(entryImages.createdAt);
 }
 
-export async function createEntry(ownerId: string, input: z.infer<typeof entryInputSchema>) {
+export async function createEntry(
+  ownerId: string,
+  input: z.infer<typeof entryInputSchema>
+) {
   const parsed = entryInputSchema.parse(input);
   const youtubeId = ensureYouTubeUrl(parsed.youtubeUrl);
   const id = randomUUID();
@@ -78,7 +115,11 @@ export async function createEntry(ownerId: string, input: z.infer<typeof entryIn
   return rows[0];
 }
 
-export async function updateEntry(ownerId: string, entryId: string, input: z.infer<typeof entryInputSchema>) {
+export async function updateEntry(
+  ownerId: string,
+  entryId: string,
+  input: z.infer<typeof entryInputSchema>
+) {
   const parsed = entryInputSchema.parse(input);
   const youtubeId = ensureYouTubeUrl(parsed.youtubeUrl);
   const rows = await db
@@ -100,7 +141,10 @@ export async function deleteEntry(ownerId: string, entryId: string) {
   return images;
 }
 
-export async function addEntryImage(ownerId: string, input: z.infer<typeof imageInputSchema>) {
+export async function addEntryImage(
+  ownerId: string,
+  input: z.infer<typeof imageInputSchema>
+) {
   const parsed = imageInputSchema.parse(input);
   const entry = await getEntryForOwner(ownerId, parsed.entryId);
   if (!entry) throw new Error("That journal entry was not found.");
@@ -122,4 +166,192 @@ export async function deleteEntryImage(ownerId: string, imageId: string) {
   if (!image) throw new Error("That reference image was not found.");
   await db.delete(entryImages).where(eq(entryImages.id, imageId));
   return image;
+}
+
+export const playlistInputSchema = z.object({
+  name: z.string().trim().min(1, "A playlist name is required.").max(80),
+  description: z.string().trim().max(240).default(""),
+  entryIds: z.array(z.string().uuid()).max(500).default([]),
+});
+
+export type Playlist = typeof playlists.$inferSelect;
+
+export async function listPlaylists(ownerId: string) {
+  const rows = await db
+    .select({
+      playlist: playlists,
+      count: sql<number>`count(${playlistEntries.entryId})::int`,
+    })
+    .from(playlists)
+    .leftJoin(playlistEntries, eq(playlists.id, playlistEntries.playlistId))
+    .where(eq(playlists.ownerId, ownerId))
+    .groupBy(playlists.id)
+    .orderBy(desc(playlists.updatedAt));
+  if (!rows.length) return [];
+
+  const memberships = await db
+    .select({
+      playlistId: playlistEntries.playlistId,
+      entry: playlistEntryChoice,
+    })
+    .from(playlistEntries)
+    .innerJoin(videoEntries, eq(playlistEntries.entryId, videoEntries.id))
+    .where(
+      and(
+        inArray(
+          playlistEntries.playlistId,
+          rows.map(({ playlist }) => playlist.id)
+        ),
+        eq(videoEntries.ownerId, ownerId),
+        sql`${playlistEntries.position} < 3`
+      )
+    )
+    .orderBy(playlistEntries.playlistId, playlistEntries.position);
+
+  const previews = new Map<string, PlaylistEntryChoice[]>();
+  for (const { playlistId, entry } of memberships) {
+    const current = previews.get(playlistId) ?? [];
+    current.push(entry);
+    previews.set(playlistId, current);
+  }
+
+  return rows.map(({ playlist, count }) => ({
+    ...playlist,
+    entryCount: count,
+    previewEntries: previews.get(playlist.id) ?? [],
+  }));
+}
+
+export async function getPlaylistForOwner(ownerId: string, playlistId: string) {
+  const rows = await db
+    .select()
+    .from(playlists)
+    .where(and(eq(playlists.id, playlistId), eq(playlists.ownerId, ownerId)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getPlaylistEntries(ownerId: string, playlistId: string) {
+  const playlist = await getPlaylistForOwner(ownerId, playlistId);
+  if (!playlist) return [];
+  return db
+    .select({ entry: playlistEntryChoice, position: playlistEntries.position })
+    .from(playlistEntries)
+    .innerJoin(videoEntries, eq(playlistEntries.entryId, videoEntries.id))
+    .where(
+      and(
+        eq(playlistEntries.playlistId, playlistId),
+        eq(videoEntries.ownerId, ownerId)
+      )
+    )
+    .orderBy(playlistEntries.position, playlistEntries.addedAt)
+    .then(rows => rows.map(row => row.entry));
+}
+
+async function validateOwnedEntries(ownerId: string, entryIds: string[]) {
+  const uniqueIds = [...new Set(entryIds)];
+  if (!uniqueIds.length) return uniqueIds;
+  const owned = await db
+    .select({ id: videoEntries.id })
+    .from(videoEntries)
+    .where(
+      and(
+        eq(videoEntries.ownerId, ownerId),
+        inArray(videoEntries.id, uniqueIds)
+      )
+    );
+  if (owned.length !== uniqueIds.length)
+    throw new Error("One or more selected entries were not found.");
+  return uniqueIds;
+}
+
+export async function createPlaylist(
+  ownerId: string,
+  input: z.infer<typeof playlistInputSchema>
+) {
+  const parsed = playlistInputSchema.parse(input);
+  const entryIds = await validateOwnedEntries(ownerId, parsed.entryIds);
+  const id = randomUUID();
+  const create = db
+    .insert(playlists)
+    .values({
+      id,
+      ownerId,
+      name: parsed.name,
+      description: parsed.description,
+    });
+
+  if (!entryIds.length) {
+    await create;
+  } else {
+    await db.batch([
+      create,
+      db
+        .insert(playlistEntries)
+        .values(
+          entryIds.map((entryId, position) => ({
+            playlistId: id,
+            entryId,
+            position,
+          }))
+        ),
+    ]);
+  }
+
+  return { id, ownerId, name: parsed.name, description: parsed.description };
+}
+
+export async function updatePlaylist(
+  ownerId: string,
+  playlistId: string,
+  input: z.infer<typeof playlistInputSchema>
+) {
+  const parsed = playlistInputSchema.parse(input);
+  const [playlist, entryIds] = await Promise.all([
+    getPlaylistForOwner(ownerId, playlistId),
+    validateOwnedEntries(ownerId, parsed.entryIds),
+  ]);
+  if (!playlist) throw new Error("That playlist was not found.");
+
+  const updatedAt = new Date();
+  const update = db
+    .update(playlists)
+    .set({ name: parsed.name, description: parsed.description, updatedAt })
+    .where(and(eq(playlists.id, playlistId), eq(playlists.ownerId, ownerId)));
+  const clearMembership = db
+    .delete(playlistEntries)
+    .where(eq(playlistEntries.playlistId, playlistId));
+
+  if (entryIds.length) {
+    await db.batch([
+      update,
+      clearMembership,
+      db
+        .insert(playlistEntries)
+        .values(
+          entryIds.map((entryId, position) => ({
+            playlistId,
+            entryId,
+            position,
+          }))
+        ),
+    ]);
+  } else {
+    await db.batch([update, clearMembership]);
+  }
+
+  return {
+    ...playlist,
+    name: parsed.name,
+    description: parsed.description,
+    updatedAt,
+  };
+}
+
+export async function deletePlaylist(ownerId: string, playlistId: string) {
+  const rows = await db
+    .delete(playlists)
+    .where(and(eq(playlists.id, playlistId), eq(playlists.ownerId, ownerId)))
+    .returning({ id: playlists.id });
+  if (!rows[0]) throw new Error("That playlist was not found.");
 }

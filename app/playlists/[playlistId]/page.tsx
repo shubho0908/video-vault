@@ -10,7 +10,7 @@ import {
   getPlaylistEntries,
   getPlaylistForOwner,
   listEntryChoices,
-} from "@/lib/journal";
+} from "@/lib/journal-cache";
 import { requireOwner } from "@/lib/session";
 
 export default async function PlaylistPage({

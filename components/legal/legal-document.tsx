@@ -178,14 +178,20 @@ export function LegalDocument({
                   href="/privacy"
                   className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  <ShieldCheck className="size-3.5 text-primary/80" aria-hidden="true" />
+                  <ShieldCheck
+                    className="size-3.5 text-primary/80"
+                    aria-hidden="true"
+                  />
                   Privacy Policy
                 </Link>
                 <Link
                   href="/terms"
                   className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  <FileText className="size-3.5 text-primary/80" aria-hidden="true" />
+                  <FileText
+                    className="size-3.5 text-primary/80"
+                    aria-hidden="true"
+                  />
                   Terms of Service
                 </Link>
               </div>

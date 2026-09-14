@@ -92,13 +92,15 @@ export async function getEntryForOwner(ownerId: string, entryId: string) {
 }
 
 export async function getImagesForEntry(ownerId: string, entryId: string) {
-  const entry = await getEntryForOwner(ownerId, entryId);
-  if (!entry) return [];
-  return db
-    .select()
+  const rows = await db
+    .select({ image: entryImages })
     .from(entryImages)
-    .where(eq(entryImages.entryId, entryId))
+    .innerJoin(videoEntries, eq(entryImages.entryId, videoEntries.id))
+    .where(
+      and(eq(entryImages.entryId, entryId), eq(videoEntries.ownerId, ownerId))
+    )
     .orderBy(entryImages.createdAt);
+  return rows.map(({ image }) => image);
 }
 
 export async function createEntry(
@@ -177,36 +179,34 @@ export const playlistInputSchema = z.object({
 export type Playlist = typeof playlists.$inferSelect;
 
 export async function listPlaylists(ownerId: string) {
-  const rows = await db
-    .select({
-      playlist: playlists,
-      count: sql<number>`count(${playlistEntries.entryId})::int`,
-    })
-    .from(playlists)
-    .leftJoin(playlistEntries, eq(playlists.id, playlistEntries.playlistId))
-    .where(eq(playlists.ownerId, ownerId))
-    .groupBy(playlists.id)
-    .orderBy(desc(playlists.updatedAt));
-  if (!rows.length) return [];
-
-  const memberships = await db
-    .select({
-      playlistId: playlistEntries.playlistId,
-      entry: playlistEntryChoice,
-    })
-    .from(playlistEntries)
-    .innerJoin(videoEntries, eq(playlistEntries.entryId, videoEntries.id))
-    .where(
-      and(
-        inArray(
-          playlistEntries.playlistId,
-          rows.map(({ playlist }) => playlist.id)
-        ),
-        eq(videoEntries.ownerId, ownerId),
-        sql`${playlistEntries.position} < 3`
+  const [rows, memberships] = await Promise.all([
+    db
+      .select({
+        playlist: playlists,
+        count: sql<number>`count(${playlistEntries.entryId})::int`,
+      })
+      .from(playlists)
+      .leftJoin(playlistEntries, eq(playlists.id, playlistEntries.playlistId))
+      .where(eq(playlists.ownerId, ownerId))
+      .groupBy(playlists.id)
+      .orderBy(desc(playlists.updatedAt)),
+    db
+      .select({
+        playlistId: playlistEntries.playlistId,
+        entry: playlistEntryChoice,
+      })
+      .from(playlistEntries)
+      .innerJoin(playlists, eq(playlistEntries.playlistId, playlists.id))
+      .innerJoin(videoEntries, eq(playlistEntries.entryId, videoEntries.id))
+      .where(
+        and(
+          eq(playlists.ownerId, ownerId),
+          eq(videoEntries.ownerId, ownerId),
+          sql`${playlistEntries.position} < 3`
+        )
       )
-    )
-    .orderBy(playlistEntries.playlistId, playlistEntries.position);
+      .orderBy(playlistEntries.playlistId, playlistEntries.position),
+  ]);
 
   const previews = new Map<string, PlaylistEntryChoice[]>();
   for (const { playlistId, entry } of memberships) {
@@ -232,15 +232,15 @@ export async function getPlaylistForOwner(ownerId: string, playlistId: string) {
 }
 
 export async function getPlaylistEntries(ownerId: string, playlistId: string) {
-  const playlist = await getPlaylistForOwner(ownerId, playlistId);
-  if (!playlist) return [];
   return db
     .select({ entry: playlistEntryChoice, position: playlistEntries.position })
     .from(playlistEntries)
+    .innerJoin(playlists, eq(playlistEntries.playlistId, playlists.id))
     .innerJoin(videoEntries, eq(playlistEntries.entryId, videoEntries.id))
     .where(
       and(
         eq(playlistEntries.playlistId, playlistId),
+        eq(playlists.ownerId, ownerId),
         eq(videoEntries.ownerId, ownerId)
       )
     )
@@ -272,29 +272,25 @@ export async function createPlaylist(
   const parsed = playlistInputSchema.parse(input);
   const entryIds = await validateOwnedEntries(ownerId, parsed.entryIds);
   const id = randomUUID();
-  const create = db
-    .insert(playlists)
-    .values({
-      id,
-      ownerId,
-      name: parsed.name,
-      description: parsed.description,
-    });
+  const create = db.insert(playlists).values({
+    id,
+    ownerId,
+    name: parsed.name,
+    description: parsed.description,
+  });
 
   if (!entryIds.length) {
     await create;
   } else {
     await db.batch([
       create,
-      db
-        .insert(playlistEntries)
-        .values(
-          entryIds.map((entryId, position) => ({
-            playlistId: id,
-            entryId,
-            position,
-          }))
-        ),
+      db.insert(playlistEntries).values(
+        entryIds.map((entryId, position) => ({
+          playlistId: id,
+          entryId,
+          position,
+        }))
+      ),
     ]);
   }
 
@@ -326,15 +322,13 @@ export async function updatePlaylist(
     await db.batch([
       update,
       clearMembership,
-      db
-        .insert(playlistEntries)
-        .values(
-          entryIds.map((entryId, position) => ({
-            playlistId,
-            entryId,
-            position,
-          }))
-        ),
+      db.insert(playlistEntries).values(
+        entryIds.map((entryId, position) => ({
+          playlistId,
+          entryId,
+          position,
+        }))
+      ),
     ]);
   } else {
     await db.batch([update, clearMembership]);

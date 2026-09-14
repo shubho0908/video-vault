@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { ArrowUpRight, Layers3, Play } from "lucide-react";
 
+import { PerformanceLink as Link } from "@/components/journal/performance-link";
 import { PlaylistDialog } from "@/components/journal/playlist-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

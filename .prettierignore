@@ -3,15 +3,20 @@ node_modules/
 .pnpm-store/
 
 # Build outputs
+.next/
 dist/
 build/
 *.dist
+coverage/
 
 # Generated files
 *.tsbuildinfo
-coverage/
+drizzle/
 
-# Package files
+# Vendored instruction packs
+.agents/
+
+# Package-manager output (this repository does not track lockfiles)
 package-lock.json
 pnpm-lock.yaml
 

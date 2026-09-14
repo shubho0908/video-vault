@@ -8,7 +8,9 @@ describe("ImageKit credentials", () => {
 
     expect(privateKey, "IMAGEKIT_PRIVATE_KEY must be configured").toBeTruthy();
     expect(publicKey, "IMAGEKIT_PUBLIC_KEY must be configured").toBeTruthy();
-    expect(endpoint, "IMAGEKIT_URL_ENDPOINT must be configured").toMatch(/^https:\/\//);
+    expect(endpoint, "IMAGEKIT_URL_ENDPOINT must be configured").toMatch(
+      /^https:\/\//
+    );
 
     const authorization = `Basic ${Buffer.from(`${privateKey}:`).toString("base64")}`;
     const controller = new AbortController();

@@ -26,27 +26,27 @@ Shubhojeet's Videos is an independently deployable, **single-owner video learnin
 
 ## Features
 
-| Feature | Description |
-| --- | --- |
-| Video entries | Save unlisted YouTube videos with server-validated URL normalization and ID extraction |
-| Markdown notes | Split-pane compose & live-preview editor with syntax highlighting |
-| Private images | Direct ImageKit uploads with short-lived signed URLs — never publicly accessible |
-| Owner-only auth | Better Auth + Google OAuth, strictly allowlisted to a single email |
-| Single-owner data model | Every record is scoped to the owner's user ID at the query level |
-| Dark / light theme | Theme toggle powered by `next-themes` |
-| Zero workflow dependencies | No background-job service required — fully self-contained |
+| Feature                    | Description                                                                            |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| Video entries              | Save unlisted YouTube videos with server-validated URL normalization and ID extraction |
+| Markdown notes             | Split-pane compose & live-preview editor with syntax highlighting                      |
+| Private images             | Direct ImageKit uploads with short-lived signed URLs — never publicly accessible       |
+| Owner-only auth            | Better Auth + Google OAuth, strictly allowlisted to a single email                     |
+| Single-owner data model    | Every record is scoped to the owner's user ID at the query level                       |
+| Dark / light theme         | Theme toggle powered by `next-themes`                                                  |
+| Zero workflow dependencies | No background-job service required — fully self-contained                              |
 
 ## Architecture
 
 The deployed application has **no runtime dependency on Manus services**. It is a standard Bun-managed Next.js project intended for a user-owned GitHub repository and Vercel project.
 
-| Layer | Service | Purpose |
-| --- | --- | --- |
-| Application | Next.js 16 App Router on Vercel | Server-rendered journal, route handlers, server actions, and Better Auth endpoints |
-| Database | Neon Postgres + Drizzle ORM | Better Auth identities/sessions and owner-scoped journal data |
-| Authentication | Better Auth + Google OAuth | Google sign-in, then strict allowlisting by `OWNER_EMAIL` |
-| Media | ImageKit | Direct private image upload, CDN transformation, signed image delivery, and cleanup |
-| Workflows | None by default | Inngest is intentionally omitted; add it only for durable background features such as transcription or review reminders |
+| Layer          | Service                         | Purpose                                                                                                                 |
+| -------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Application    | Next.js 16 App Router on Vercel | Server-rendered journal, route handlers, server actions, and Better Auth endpoints                                      |
+| Database       | Neon Postgres + Drizzle ORM     | Better Auth identities/sessions and owner-scoped journal data                                                           |
+| Authentication | Better Auth + Google OAuth      | Google sign-in, then strict allowlisting by `OWNER_EMAIL`                                                               |
+| Media          | ImageKit                        | Direct private image upload, CDN transformation, signed image delivery, and cleanup                                     |
+| Workflows      | None by default                 | Inngest is intentionally omitted; add it only for durable background features such as transcription or review reminders |
 
 For a deeper dive into the data model, workflows, and implementation choices, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
@@ -77,18 +77,18 @@ bun run dev
 
 Copy `.env.example` to `.env.local` and supply your own credentials:
 
-| Variable | Scope | Description |
-| --- | --- | --- |
-| `DATABASE_URL` | Runtime | Neon **pooled** connection string (`sslmode=require`) |
-| `DATABASE_URL_UNPOOLED` | Migrations | Neon direct, non-pooled connection string (`sslmode=require`) |
-| `BETTER_AUTH_SECRET` | Server | Secret used to sign Better Auth sessions |
-| `BETTER_AUTH_URL` | Server | Public base URL — drives the OAuth callback derivation |
-| `GOOGLE_CLIENT_ID` | Server | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | Server | Google OAuth client secret |
-| `OWNER_EMAIL` | Server | The single allowlisted Google email — **never leave empty** |
-| `IMAGEKIT_PUBLIC_KEY` | Client | ImageKit public API key |
-| `IMAGEKIT_PRIVATE_KEY` | Server-only | ImageKit private API key |
-| `IMAGEKIT_URL_ENDPOINT` | Client | ImageKit CDN URL endpoint |
+| Variable                | Scope       | Description                                                   |
+| ----------------------- | ----------- | ------------------------------------------------------------- |
+| `DATABASE_URL`          | Runtime     | Neon **pooled** connection string (`sslmode=require`)         |
+| `DATABASE_URL_UNPOOLED` | Migrations  | Neon direct, non-pooled connection string (`sslmode=require`) |
+| `BETTER_AUTH_SECRET`    | Server      | Secret used to sign Better Auth sessions                      |
+| `BETTER_AUTH_URL`       | Server      | Public base URL — drives the OAuth callback derivation        |
+| `GOOGLE_CLIENT_ID`      | Server      | Google OAuth client ID                                        |
+| `GOOGLE_CLIENT_SECRET`  | Server      | Google OAuth client secret                                    |
+| `OWNER_EMAIL`           | Server      | The single allowlisted Google email — **never leave empty**   |
+| `IMAGEKIT_PUBLIC_KEY`   | Client      | ImageKit public API key                                       |
+| `IMAGEKIT_PRIVATE_KEY`  | Server-only | ImageKit private API key                                      |
+| `IMAGEKIT_URL_ENDPOINT` | Client      | ImageKit CDN URL endpoint                                     |
 
 ## Google OAuth & Owner Access
 

@@ -39,7 +39,7 @@ describe("playlist thumbnail collage", () => {
   ])("renders %i preview(s) in the matching grid", (count, gridClass) => {
     const markup = renderPreview(count as number);
     expect(markup).toContain(gridClass);
-    expect(markup.match(/i\.ytimg\.com/g)).toHaveLength(count);
+    expect(markup.match(/<img /g)).toHaveLength(count);
     expect(markup.match(/h-full min-w-0 w-full object-cover/g)).toHaveLength(
       count
     );

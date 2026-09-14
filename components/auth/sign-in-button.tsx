@@ -11,11 +11,18 @@ export function SignInButton() {
 
   async function signIn() {
     setPending(true);
-    await authClient.signIn.social({ provider: "google", callbackURL: "/dashboard" });
+    await authClient.signIn.social({
+      provider: "google",
+      callbackURL: "/dashboard",
+    });
   }
 
   return (
-    <Button className="h-11 w-full rounded-lg" onClick={signIn} disabled={pending}>
+    <Button
+      className="h-11 w-full rounded-lg"
+      onClick={signIn}
+      disabled={pending}
+    >
       {pending ? <LoaderCircle className="animate-spin" /> : <Chrome />}
       Continue with Google
     </Button>

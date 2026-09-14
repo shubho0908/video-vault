@@ -49,8 +49,12 @@ export default async function HomePage() {
         <div className="flex items-center gap-3">
           <VaultMark className="size-10 rounded-xl" />
           <div>
-            <p className="text-sm font-medium leading-none tracking-tight">Shubhojeet&apos;s Videos</p>
-            <p className="mt-1.5 font-mono text-xs text-muted-foreground">Private learning journal</p>
+            <p className="text-sm font-medium leading-none tracking-tight">
+              Shubhojeet&apos;s Videos
+            </p>
+            <p className="mt-1.5 font-mono text-xs text-muted-foreground">
+              Private learning journal
+            </p>
           </div>
         </div>
         <Link
@@ -58,7 +62,10 @@ export default async function HomePage() {
           className="group inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-card/60 px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
         >
           Sign in
-          <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+          <ArrowRight
+            className="size-3.5 transition-transform group-hover:translate-x-0.5"
+            aria-hidden="true"
+          />
         </Link>
       </header>
 
@@ -67,17 +74,23 @@ export default async function HomePage() {
           A private home for the videos you learn from.
         </h1>
         <p className="mx-auto mt-6 max-w-[58ch] text-pretty text-base leading-7 text-muted-foreground sm:text-lg">
-          Shubhojeet&apos;s Videos is a personal learning journal: collect unlisted YouTube explanations,
-          capture them as Markdown notes, and keep the references that make them stick — all in one
-          owner-only vault secured by Google sign-in.
+          Shubhojeet&apos;s Videos is a personal learning journal: collect
+          unlisted YouTube explanations, capture them as Markdown notes, and
+          keep the references that make them stick — all in one owner-only vault
+          secured by Google sign-in.
         </p>
         <div className="mx-auto mt-9 w-full max-w-xs">
           <SignInButton />
         </div>
-        <p className="mt-4 font-mono text-xs text-muted-foreground">Access is restricted to the journal&apos;s designated owner.</p>
+        <p className="mt-4 font-mono text-xs text-muted-foreground">
+          Access is restricted to the journal&apos;s designated owner.
+        </p>
       </section>
 
-      <section className="reveal reveal-d2 relative mx-auto mt-20 grid w-full max-w-5xl gap-4 sm:mt-28 sm:grid-cols-3" aria-label="What this app does">
+      <section
+        className="reveal reveal-d2 relative mx-auto mt-20 grid w-full max-w-5xl gap-4 sm:mt-28 sm:grid-cols-3"
+        aria-label="What this app does"
+      >
         {features.map(({ icon: Icon, title, body }) => (
           <article
             key={title}
@@ -86,8 +99,12 @@ export default async function HomePage() {
             <span className="glow-primary inline-flex size-10 items-center justify-center rounded-xl border border-border/80 bg-background/80 text-primary">
               <Icon className="size-5" aria-hidden="true" />
             </span>
-            <h2 className="mt-5 text-base font-semibold tracking-tight">{title}</h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">{body}</p>
+            <h2 className="mt-5 text-base font-semibold tracking-tight">
+              {title}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              {body}
+            </p>
           </article>
         ))}
       </section>
@@ -98,15 +115,22 @@ export default async function HomePage() {
           About Google sign-in &amp; your data
         </h2>
         <p className="mt-3 max-w-[68ch] text-sm leading-6 text-muted-foreground">
-          This app uses Google sign-in solely to verify the identity of its single authorized owner.
-          It requests only basic profile information (name and email address) and stores no other
-          Google data. Access is denied to every other account, and journal contents are never shared.
+          This app uses Google sign-in solely to verify the identity of its
+          single authorized owner. It requests only basic profile information
+          (name and email address) and stores no other Google data. Access is
+          denied to every other account, and journal contents are never shared.
         </p>
         <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
-          <Link href="/privacy" className="underline decoration-border underline-offset-2 transition-colors hover:text-foreground">
+          <Link
+            href="/privacy"
+            className="underline decoration-border underline-offset-2 transition-colors hover:text-foreground"
+          >
             Privacy Policy
           </Link>
-          <Link href="/terms" className="underline decoration-border underline-offset-2 transition-colors hover:text-foreground">
+          <Link
+            href="/terms"
+            className="underline decoration-border underline-offset-2 transition-colors hover:text-foreground"
+          >
             Terms of Service
           </Link>
         </div>
@@ -117,7 +141,9 @@ export default async function HomePage() {
           <LockKeyhole className="size-3.5" aria-hidden="true" />
           Shubhojeet&apos;s Videos — a single-owner learning journal.
         </p>
-        <p className="font-mono">Your videos remain unlisted. Your notes remain yours.</p>
+        <p className="font-mono">
+          Your videos remain unlisted. Your notes remain yours.
+        </p>
       </footer>
     </main>
   );

@@ -6,30 +6,19 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": [
-    "node_modules",
-    "client",
-    "server",
-    "drizzle"
-  ],
+  "exclude": ["node_modules", "client", "server", "drizzle"],
   "compilerOptions": {
     "incremental": true,
     "noEmit": true,
     "module": "esnext",
     "strict": true,
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "es2022"
-    ],
+    "lib": ["dom", "dom.iterable", "es2022"],
     "jsx": "react-jsx",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "moduleResolution": "bundler",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"]
     },
     "target": "ES2017",
     "allowJs": true,

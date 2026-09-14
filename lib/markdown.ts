@@ -18,16 +18,23 @@ export function createNoteImageMarkdown(imageId: string, altText: string) {
  * ImageKit signatures out of the database and only resolves images owned by the
  * entry currently being rendered.
  */
-export function resolveNoteImageReferences(markdown: string, images: NoteImageReference[]) {
-  const imageUrls = new Map(images.map((image) => [image.id, image.signedUrl]));
+export function resolveNoteImageReferences(
+  markdown: string,
+  images: NoteImageReference[]
+) {
+  const imageUrls = new Map(images.map(image => [image.id, image.signedUrl]));
 
-  return markdown.replace(noteImagePattern, (_match, altText: string, imageId: string) => {
-    const signedUrl = imageUrls.get(imageId);
-    if (signedUrl) return `![${altText}](${signedUrl})`;
+  return markdown.replace(
+    noteImagePattern,
+    (_match, altText: string, imageId: string) => {
+      const signedUrl = imageUrls.get(imageId);
+      if (signedUrl) return `![${altText}](${signedUrl})`;
 
-    const label = altText.replace(/[\[\]*_`]/g, "").trim() || "Uploaded image";
-    return `*[Image unavailable: ${label}]*`;
-  });
+      const label =
+        altText.replace(/[\[\]*_`]/g, "").trim() || "Uploaded image";
+      return `*[Image unavailable: ${label}]*`;
+    }
+  );
 }
 
 /** Collapse markdown to a single-line plain-text excerpt for list previews. */

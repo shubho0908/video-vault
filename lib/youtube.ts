@@ -10,7 +10,10 @@ export function getYouTubeVideoId(value: string) {
 
     if (hostname === "youtube.com" || hostname === "m.youtube.com") {
       if (url.pathname === "/watch") videoId = url.searchParams.get("v") ?? "";
-      if (url.pathname.startsWith("/embed/") || url.pathname.startsWith("/shorts/")) {
+      if (
+        url.pathname.startsWith("/embed/") ||
+        url.pathname.startsWith("/shorts/")
+      ) {
         videoId = url.pathname.split("/").filter(Boolean)[1] ?? "";
       }
     }

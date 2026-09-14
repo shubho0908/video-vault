@@ -33,7 +33,9 @@ export function JournalShell({
             </span>
             <ThemeToggle />
             <Button asChild size="sm" className="ml-0 sm:ml-1">
-              <Link href="/entries/new"><Plus /> New entry</Link>
+              <Link href="/entries/new">
+                <Plus /> New entry
+              </Link>
             </Button>
             <SignOutButton />
           </div>

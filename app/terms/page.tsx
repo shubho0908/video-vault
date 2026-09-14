@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 
-import { LegalDocument, Email, P, UL, type LegalDoc } from "@/components/legal/legal-document";
+import {
+  LegalDocument,
+  Email,
+  P,
+  UL,
+  type LegalDoc,
+} from "@/components/legal/legal-document";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
@@ -13,8 +19,9 @@ const doc: LegalDoc = {
   title: "Terms of Service",
   intro: (
     <p>
-      These terms govern your use of Shubhojeet&apos;s Videos, a personal learning journal for notes
-      and unlisted YouTube references. They are intentionally short and written to be readable.
+      These terms govern your use of Shubhojeet&apos;s Videos, a personal
+      learning journal for notes and unlisted YouTube references. They are
+      intentionally short and written to be readable.
     </p>
   ),
   sections: [
@@ -23,9 +30,12 @@ const doc: LegalDoc = {
       title: "Acceptance of terms",
       body: (
         <P>
-          By accessing or using the service — including by signing in with Google — you agree to be
-          bound by these terms and our{" "}
-          <a href="/privacy" className="text-primary underline decoration-primary/40 underline-offset-[0.18em]">
+          By accessing or using the service — including by signing in with
+          Google — you agree to be bound by these terms and our{" "}
+          <a
+            href="/privacy"
+            className="text-primary underline decoration-primary/40 underline-offset-[0.18em]"
+          >
             Privacy Policy
           </a>
           . If you do not agree, do not use the service.
@@ -37,9 +47,10 @@ const doc: LegalDoc = {
       title: "What the service is",
       body: (
         <P>
-          The service provides a private space for a single designated owner to keep journal entries:
-          short-form explanations, written notes, links to unlisted YouTube videos, and attached
-          images. It is provided on a personal basis and offers no public-facing features.
+          The service provides a private space for a single designated owner to
+          keep journal entries: short-form explanations, written notes, links to
+          unlisted YouTube videos, and attached images. It is provided on a
+          personal basis and offers no public-facing features.
         </P>
       ),
     },
@@ -80,13 +91,13 @@ const doc: LegalDoc = {
       body: (
         <>
           <P>
-            You retain ownership of everything you write or upload to the journal. You grant the
-            operator only the limited technical right to store, back up, and display your content
-            within the service for you.
+            You retain ownership of everything you write or upload to the
+            journal. You grant the operator only the limited technical right to
+            store, back up, and display your content within the service for you.
           </P>
           <P>
-            You are solely responsible for your entries, including the legality of any third-party
-            material (such as embedded videos) you link to.
+            You are solely responsible for your entries, including the legality
+            of any third-party material (such as embedded videos) you link to.
           </P>
         </>
       ),
@@ -96,10 +107,11 @@ const doc: LegalDoc = {
       title: "Third-party services",
       body: (
         <P>
-          The service relies on third parties — Google (authentication), a hosting/database provider,
-          an image-delivery provider, and YouTube&apos;s embed player for video playback. Those
-          services have their own terms and privacy policies, and the operator is not responsible
-          for their availability, actions, or changes.
+          The service relies on third parties — Google (authentication), a
+          hosting/database provider, an image-delivery provider, and
+          YouTube&apos;s embed player for video playback. Those services have
+          their own terms and privacy policies, and the operator is not
+          responsible for their availability, actions, or changes.
         </P>
       ),
     },
@@ -108,9 +120,10 @@ const doc: LegalDoc = {
       title: "Availability & changes",
       body: (
         <P>
-          The service is provided on an “as is” and “as available” basis. It may be modified,
-          suspended, or discontinued at any time, with or without notice. Downtime, data loss from
-          causes outside reasonable control, or feature changes are not grounds for any claim.
+          The service is provided on an “as is” and “as available” basis. It may
+          be modified, suspended, or discontinued at any time, with or without
+          notice. Downtime, data loss from causes outside reasonable control, or
+          feature changes are not grounds for any claim.
         </P>
       ),
     },
@@ -119,9 +132,10 @@ const doc: LegalDoc = {
       title: "Disclaimers",
       body: (
         <P>
-          To the fullest extent permitted by law, the service disclaims all warranties, express or
-          implied, including merchantability, fitness for a particular purpose, and non-infringement.
-          No advice or information obtained through the service creates any warranty.
+          To the fullest extent permitted by law, the service disclaims all
+          warranties, express or implied, including merchantability, fitness for
+          a particular purpose, and non-infringement. No advice or information
+          obtained through the service creates any warranty.
         </P>
       ),
     },
@@ -130,9 +144,10 @@ const doc: LegalDoc = {
       title: "Limitation of liability",
       body: (
         <P>
-          To the fullest extent permitted by law, the operator will not be liable for any indirect,
-          incidental, special, consequential, or punitive damages — including loss of data, profits,
-          or goodwill — arising from your use of or inability to use the service.
+          To the fullest extent permitted by law, the operator will not be
+          liable for any indirect, incidental, special, consequential, or
+          punitive damages — including loss of data, profits, or goodwill —
+          arising from your use of or inability to use the service.
         </P>
       ),
     },
@@ -141,9 +156,10 @@ const doc: LegalDoc = {
       title: "Termination",
       body: (
         <P>
-          Access may be revoked at any time if these terms are breached or if the owner discontinues
-          the service. You may stop using the service at any time; on request, associated data will
-          be deleted as described in the Privacy Policy.
+          Access may be revoked at any time if these terms are breached or if
+          the owner discontinues the service. You may stop using the service at
+          any time; on request, associated data will be deleted as described in
+          the Privacy Policy.
         </P>
       ),
     },
@@ -152,9 +168,9 @@ const doc: LegalDoc = {
       title: "Changes to these terms",
       body: (
         <P>
-          These terms may be updated from time to time. Changes take effect when posted on this page
-          with a new “last updated” date, and continued use of the service after that constitutes
-          acceptance.
+          These terms may be updated from time to time. Changes take effect when
+          posted on this page with a new “last updated” date, and continued use
+          of the service after that constitutes acceptance.
         </P>
       ),
     },

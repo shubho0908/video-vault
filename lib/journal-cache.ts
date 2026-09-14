@@ -18,9 +18,57 @@ import {
 } from "@/lib/cache-tags";
 
 const HOUR = 3600;
+const DATE_MARKER = "__videoVaultDate";
 
-function cached<T>(key: string[], tags: string[], read: () => Promise<T>) {
-  return unstable_cache(read, key, { revalidate: HOUR, tags })();
+type EncodedDate = { [DATE_MARKER]: string };
+
+export function serializeCacheValue(value: unknown): unknown {
+  if (value instanceof Date) return { [DATE_MARKER]: value.toISOString() };
+  if (Array.isArray(value)) return value.map(serializeCacheValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [
+        key,
+        serializeCacheValue(nested),
+      ])
+    );
+  }
+  return value;
+}
+
+function isEncodedDate(value: object): value is EncodedDate {
+  return (
+    Object.keys(value).length === 1 &&
+    DATE_MARKER in value &&
+    typeof (value as EncodedDate)[DATE_MARKER] === "string"
+  );
+}
+
+export function reviveCacheValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(reviveCacheValue);
+  if (value && typeof value === "object") {
+    if (isEncodedDate(value)) return new Date(value[DATE_MARKER]);
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [
+        key,
+        reviveCacheValue(nested),
+      ])
+    );
+  }
+  return value;
+}
+
+async function cached<T>(
+  key: string[],
+  tags: string[],
+  read: () => Promise<T>
+): Promise<T> {
+  const encoded = await unstable_cache(
+    async () => serializeCacheValue(await read()),
+    key,
+    { revalidate: HOUR, tags }
+  )();
+  return reviveCacheValue(encoded) as T;
 }
 
 // The authenticated owner ID is part of every key and every invalidation tag.

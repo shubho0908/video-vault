@@ -49,11 +49,13 @@ describe("private journal cache isolation", () => {
     });
 
     expect(mocks.unstableCache.mock.calls[0][1]).toEqual([
+      "v2-date-tags",
       "entry",
       "owner-a",
       "entry-1",
     ]);
     expect(mocks.unstableCache.mock.calls[1][1]).toEqual([
+      "v2-date-tags",
       "entry",
       "owner-b",
       "entry-1",
@@ -71,12 +73,14 @@ describe("private journal cache isolation", () => {
     await listEntries("owner-a", "react", "web");
     await listEntries("owner-a", "sql", "db");
     expect(mocks.unstableCache.mock.calls[0][1]).toEqual([
+      "v2-date-tags",
       "entries",
       "owner-a",
       "react",
       "web",
     ]);
     expect(mocks.unstableCache.mock.calls[1][1]).toEqual([
+      "v2-date-tags",
       "entries",
       "owner-a",
       "sql",
@@ -88,6 +92,7 @@ describe("private journal cache isolation", () => {
     mocks.readPlaylist.mockResolvedValue(null);
     await getPlaylistForOwner("owner-a", "playlist-1");
     expect(mocks.unstableCache.mock.calls[0][1]).toEqual([
+      "v2-date-tags",
       "playlist",
       "owner-a",
       "playlist-1",

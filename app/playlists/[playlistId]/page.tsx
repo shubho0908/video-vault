@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   getPlaylistEntries,
   getPlaylistForOwner,
-  listEntries,
+  listEntryChoices,
 } from "@/lib/journal";
 import { requireOwner } from "@/lib/session";
 
@@ -23,7 +23,7 @@ export default async function PlaylistPage({
   const [playlist, entries, allEntries] = await Promise.all([
     getPlaylistForOwner(session.user.id, playlistId),
     getPlaylistEntries(session.user.id, playlistId),
-    listEntries(session.user.id),
+    listEntryChoices(session.user.id),
   ]);
   if (!playlist) notFound();
   return (

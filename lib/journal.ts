@@ -1,9 +1,9 @@
 import { randomUUID } from "crypto";
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
-import { entryImages, videoEntries } from "@/lib/schema";
+import { entryImages, playlistEntries, playlists, videoEntries } from "@/lib/schema";
 import { getYouTubeVideoId } from "@/lib/youtube";
 
 export type JournalEntry = typeof videoEntries.$inferSelect;
@@ -122,4 +122,89 @@ export async function deleteEntryImage(ownerId: string, imageId: string) {
   if (!image) throw new Error("That reference image was not found.");
   await db.delete(entryImages).where(eq(entryImages.id, imageId));
   return image;
+}
+
+export const playlistInputSchema = z.object({
+  name: z.string().trim().min(1, "A playlist name is required.").max(80),
+  description: z.string().trim().max(240).default(""),
+  entryIds: z.array(z.string().uuid()).max(500).default([]),
+});
+
+export type Playlist = typeof playlists.$inferSelect;
+
+export async function listPlaylists(ownerId: string) {
+  const rows = await db
+    .select({ playlist: playlists, count: sql<number>`count(${playlistEntries.entryId})::int` })
+    .from(playlists)
+    .leftJoin(playlistEntries, eq(playlists.id, playlistEntries.playlistId))
+    .where(eq(playlists.ownerId, ownerId))
+    .groupBy(playlists.id)
+    .orderBy(desc(playlists.updatedAt));
+  if (!rows.length) return [];
+  const memberships = await db.select({ playlistId: playlistEntries.playlistId, entry: videoEntries, position: playlistEntries.position })
+    .from(playlistEntries)
+    .innerJoin(videoEntries, eq(playlistEntries.entryId, videoEntries.id))
+    .where(and(inArray(playlistEntries.playlistId, rows.map(({ playlist }) => playlist.id)), eq(videoEntries.ownerId, ownerId)))
+    .orderBy(playlistEntries.playlistId, playlistEntries.position);
+  return rows.map(({ playlist, count }) => ({
+    ...playlist,
+    entryCount: count,
+    previewEntries: memberships.filter((row) => row.playlistId === playlist.id).slice(0, 3).map((row) => row.entry),
+  }));
+}
+
+export async function getPlaylistForOwner(ownerId: string, playlistId: string) {
+  const rows = await db.select().from(playlists)
+    .where(and(eq(playlists.id, playlistId), eq(playlists.ownerId, ownerId))).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getPlaylistEntries(ownerId: string, playlistId: string) {
+  const playlist = await getPlaylistForOwner(ownerId, playlistId);
+  if (!playlist) return [];
+  return db.select({ entry: videoEntries, position: playlistEntries.position })
+    .from(playlistEntries)
+    .innerJoin(videoEntries, eq(playlistEntries.entryId, videoEntries.id))
+    .where(and(eq(playlistEntries.playlistId, playlistId), eq(videoEntries.ownerId, ownerId)))
+    .orderBy(playlistEntries.position, playlistEntries.addedAt)
+    .then((rows) => rows.map((row) => row.entry));
+}
+
+async function validateOwnedEntries(ownerId: string, entryIds: string[]) {
+  const uniqueIds = [...new Set(entryIds)];
+  if (!uniqueIds.length) return uniqueIds;
+  const owned = await db.select({ id: videoEntries.id }).from(videoEntries)
+    .where(and(eq(videoEntries.ownerId, ownerId), inArray(videoEntries.id, uniqueIds)));
+  if (owned.length !== uniqueIds.length) throw new Error("One or more selected entries were not found.");
+  return uniqueIds;
+}
+
+export async function createPlaylist(ownerId: string, input: z.infer<typeof playlistInputSchema>) {
+  const parsed = playlistInputSchema.parse(input);
+  const entryIds = await validateOwnedEntries(ownerId, parsed.entryIds);
+  return db.transaction(async (tx) => {
+    const id = randomUUID();
+    const rows = await tx.insert(playlists).values({ id, ownerId, name: parsed.name, description: parsed.description }).returning();
+    if (entryIds.length) await tx.insert(playlistEntries).values(entryIds.map((entryId, position) => ({ playlistId: id, entryId, position })));
+    return rows[0];
+  });
+}
+
+export async function updatePlaylist(ownerId: string, playlistId: string, input: z.infer<typeof playlistInputSchema>) {
+  const parsed = playlistInputSchema.parse(input);
+  const entryIds = await validateOwnedEntries(ownerId, parsed.entryIds);
+  return db.transaction(async (tx) => {
+    const rows = await tx.update(playlists).set({ name: parsed.name, description: parsed.description, updatedAt: new Date() })
+      .where(and(eq(playlists.id, playlistId), eq(playlists.ownerId, ownerId))).returning();
+    if (!rows[0]) throw new Error("That playlist was not found.");
+    await tx.delete(playlistEntries).where(eq(playlistEntries.playlistId, playlistId));
+    if (entryIds.length) await tx.insert(playlistEntries).values(entryIds.map((entryId, position) => ({ playlistId, entryId, position })));
+    return rows[0];
+  });
+}
+
+export async function deletePlaylist(ownerId: string, playlistId: string) {
+  const rows = await db.delete(playlists)
+    .where(and(eq(playlists.id, playlistId), eq(playlists.ownerId, ownerId))).returning({ id: playlists.id });
+  if (!rows[0]) throw new Error("That playlist was not found.");
 }

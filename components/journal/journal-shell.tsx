@@ -17,7 +17,7 @@ export function JournalShell({
     <div className="dot-grid relative min-h-[100dvh]">
       <div className="ambient-glow" aria-hidden="true" />
       <header className="sticky top-0 z-30 border-b border-border/70 bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-2 px-4 sm:gap-4 sm:px-8">
           <Link
             href="/dashboard"
             className="group flex items-center gap-2.5 text-sm font-medium tracking-tight"
@@ -32,7 +32,7 @@ export function JournalShell({
               {userName}
             </span>
             <ThemeToggle />
-            <Button asChild size="sm" className="ml-1">
+            <Button asChild size="sm" className="ml-0 sm:ml-1">
               <Link href="/entries/new"><Plus /> New entry</Link>
             </Button>
             <SignOutButton />

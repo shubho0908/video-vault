@@ -10,7 +10,7 @@ describe("note Markdown rendering", () => {
 
     expect(markup).toContain('aria-label="Completed task"');
     expect(markup).toContain("Publish the learning notes");
-    expect(markup).toContain("✓");
+    expect(markup).toContain("lucide-check");
   });
 
   it("renders remark-gfm task lists as an accessible task row without a raw checkbox input", () => {

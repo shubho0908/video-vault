@@ -4,14 +4,15 @@ import Link from "next/link";
 import { DashboardEntryCollection } from "@/components/journal/dashboard-entry-collection";
 import { DashboardFilter } from "@/components/journal/dashboard-filter";
 import { JournalShell } from "@/components/journal/journal-shell";
+import { PlaylistShelf } from "@/components/journal/playlist-shelf";
 import { Button } from "@/components/ui/button";
-import { listEntries, listTopics } from "@/lib/journal";
+import { listEntries, listPlaylists, listTopics } from "@/lib/journal";
 import { requireOwner } from "@/lib/session";
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ q?: string; topic?: string }> }) {
   const session = await requireOwner();
   const { q = "", topic = "" } = await searchParams;
-  const [entries, topics] = await Promise.all([listEntries(session.user.id, q, topic), listTopics(session.user.id)]);
+  const [entries, topics, playlists] = await Promise.all([listEntries(session.user.id, q, topic), listTopics(session.user.id), listPlaylists(session.user.id)]);
   const filtering = Boolean(q || topic);
 
   return (
@@ -40,6 +41,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </div>
 
         <div className="reveal reveal-d1 mt-12"><DashboardFilter topics={topics} /></div>
+
+        <PlaylistShelf playlists={playlists} entries={entries} />
 
         {entries.length ? (
           <DashboardEntryCollection entries={entries} />

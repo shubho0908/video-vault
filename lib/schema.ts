@@ -90,6 +90,37 @@ export const videoEntries = pgTable(
   ]
 );
 
+export const playlists = pgTable(
+  "playlists",
+  {
+    id: text("id").primaryKey(),
+    ownerId: text("owner_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()).notNull(),
+  },
+  (table) => [
+    index("playlists_owner_updated_idx").on(table.ownerId, table.updatedAt),
+    uniqueIndex("playlists_owner_name_uidx").on(table.ownerId, table.name),
+  ]
+);
+
+export const playlistEntries = pgTable(
+  "playlist_entries",
+  {
+    playlistId: text("playlist_id").notNull().references(() => playlists.id, { onDelete: "cascade" }),
+    entryId: text("entry_id").notNull().references(() => videoEntries.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+    addedAt: timestamp("added_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("playlist_entries_playlist_entry_uidx").on(table.playlistId, table.entryId),
+    index("playlist_entries_playlist_position_idx").on(table.playlistId, table.position),
+    index("playlist_entries_entry_idx").on(table.entryId),
+  ]
+);
+
 export const entryImages = pgTable(
   "entry_images",
   {
@@ -110,6 +141,7 @@ export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
   videoEntries: many(videoEntries),
+  playlists: many(playlists),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -123,8 +155,19 @@ export const accountRelations = relations(account, ({ one }) => ({
 export const videoEntryRelations = relations(videoEntries, ({ one, many }) => ({
   owner: one(user, { fields: [videoEntries.ownerId], references: [user.id] }),
   images: many(entryImages),
+  playlistEntries: many(playlistEntries),
 }));
 
 export const entryImageRelations = relations(entryImages, ({ one }) => ({
   entry: one(videoEntries, { fields: [entryImages.entryId], references: [videoEntries.id] }),
+}));
+
+export const playlistRelations = relations(playlists, ({ one, many }) => ({
+  owner: one(user, { fields: [playlists.ownerId], references: [user.id] }),
+  entries: many(playlistEntries),
+}));
+
+export const playlistEntryRelations = relations(playlistEntries, ({ one }) => ({
+  playlist: one(playlists, { fields: [playlistEntries.playlistId], references: [playlists.id] }),
+  entry: one(videoEntries, { fields: [playlistEntries.entryId], references: [videoEntries.id] }),
 }));

@@ -11,6 +11,10 @@ import {
   imageInputSchema,
   updateEntry,
   entryInputSchema,
+  createPlaylist,
+  deletePlaylist,
+  playlistInputSchema,
+  updatePlaylist,
 } from "@/lib/journal";
 import { requireOwner } from "@/lib/session";
 
@@ -71,6 +75,32 @@ export async function deleteEntryImageAction(imageId: string, entryId: string): 
     await removeImageKitAsset(image.fileId).catch(() => undefined);
     revalidatePath(`/entries/${entryId}`);
     revalidatePath(`/entries/${entryId}/edit`);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: messageFromError(error) };
+  }
+}
+
+export async function savePlaylistAction(playlistId: string | null, input: unknown): Promise<ActionResult> {
+  try {
+    const session = await requireOwner();
+    const values = playlistInputSchema.parse(input);
+    const playlist = playlistId
+      ? await updatePlaylist(session.user.id, playlistId, values)
+      : await createPlaylist(session.user.id, values);
+    revalidatePath("/dashboard");
+    revalidatePath(`/playlists/${playlist.id}`);
+    return { ok: true, id: playlist.id };
+  } catch (error) {
+    return { ok: false, error: messageFromError(error) };
+  }
+}
+
+export async function deletePlaylistAction(playlistId: string): Promise<ActionResult> {
+  try {
+    const session = await requireOwner();
+    await deletePlaylist(session.user.id, playlistId);
+    revalidatePath("/dashboard");
     return { ok: true };
   } catch (error) {
     return { ok: false, error: messageFromError(error) };

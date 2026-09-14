@@ -5,6 +5,7 @@ import { PlaylistDialog } from "@/components/journal/playlist-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 type Entry = { id: string; title: string; topic: string; youtubeId: string };
 type Playlist = {
@@ -50,13 +51,20 @@ export function PlaylistShelf({
                 href={`/playlists/${playlist.id}`}
                 className="relative block aspect-[16/7] overflow-hidden bg-muted"
               >
-                <div className="absolute inset-0 grid grid-cols-3 gap-px opacity-65">
+                <div
+                  className={cn(
+                    "absolute inset-0 grid gap-px opacity-70",
+                    playlist.previewEntries.length <= 1 && "grid-cols-1",
+                    playlist.previewEntries.length === 2 && "grid-cols-2",
+                    playlist.previewEntries.length >= 3 && "grid-cols-3"
+                  )}
+                >
                   {playlist.previewEntries.map(entry => (
                     <img
                       key={entry.id}
-                      src={`https://i.ytimg.com/vi/${entry.youtubeId}/hqdefault.jpg`}
+                      src={`https://i.ytimg.com/vi/${entry.youtubeId}/mqdefault.jpg`}
                       alt=""
-                      className="h-full w-full object-cover"
+                      className="h-full min-w-0 w-full object-cover"
                     />
                   ))}
                 </div>

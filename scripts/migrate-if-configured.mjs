@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 if (
   !process.env.NEON_DATABASE_URL_UNPOOLED &&
@@ -10,8 +11,10 @@ if (
   process.exit(0);
 }
 
-const command = process.platform === "win32" ? "npx.cmd" : "npx";
-const result = spawnSync(command, ["drizzle-kit", "migrate"], {
+const drizzleKit = fileURLToPath(
+  new URL("../node_modules/drizzle-kit/bin.cjs", import.meta.url)
+);
+const result = spawnSync(process.execPath, [drizzleKit, "migrate"], {
   env: process.env,
   stdio: "inherit",
 });

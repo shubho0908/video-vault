@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { entryInputSchema, imageInputSchema } from "@/lib/journal";
+
+vi.mock("@/lib/db", () => ({ db: {} }));
 
 describe("journal input validation", () => {
   it("accepts a complete video-entry payload", () => {

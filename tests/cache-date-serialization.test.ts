@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { reviveCacheValue, serializeCacheValue } from "@/lib/journal-cache";
+
+vi.mock("@/lib/db", () => ({ db: {} }));
 
 const dateFormat = new Intl.DateTimeFormat("en", {
   month: "short",

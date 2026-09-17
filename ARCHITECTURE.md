@@ -2,7 +2,7 @@
 
 ## Access Model
 
-The application is private by design. Better Auth manages Google OAuth users, accounts, verification records, and sessions in MySQL. The application additionally requires every protected page, server action, and route handler to validate that the signed-in user email exactly matches `OWNER_EMAIL`. An authenticated but unapproved Google account has no journal access and cannot read or mutate any data.
+The application is private by design. Better Auth manages Google OAuth users, accounts, verification records, and sessions in Neon Postgres. The application additionally requires every protected page, server action, and route handler to validate that the signed-in user email exactly matches `OWNER_EMAIL`. An authenticated but unapproved Google account has no journal access and cannot read or mutate any data.
 
 ## Data Model
 

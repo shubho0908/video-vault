@@ -76,7 +76,7 @@ export function IosLibrary({ lib }: { lib: Lib }) {
     list.map(e => (
       <div key={e.id} className="fx-ios-row" style={{ padding: 0 }}>
         <Link href={`/entries/${e.id}`} className="fx-ios-row" style={{ flex: 1, textDecoration: "none", color: "inherit" }}>
-          <img className="fx-ios-thumb" src={thumb(e.youtubeId)} alt="" />
+          <img className="fx-ios-thumb" src={thumb(e.youtubeId)} alt="" loading="lazy" decoding="async" />
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", fontSize: 16 }}>{e.title}</span>
         </Link>
         <button className="fx-ios-btn" aria-label={`Actions for ${e.title}`} onClick={() => setSheet({ kind: "entry", entry: e })} data-from={from ?? ""}>•••</button>

@@ -222,6 +222,15 @@ export async function listPlaylists(ownerId: string) {
   }));
 }
 
+/** Id + name only, newest first. The Finder needs nothing else, so skip the count/preview queries. */
+export async function listFolders(ownerId: string) {
+  return db
+    .select({ id: playlists.id, name: playlists.name })
+    .from(playlists)
+    .where(eq(playlists.ownerId, ownerId))
+    .orderBy(desc(playlists.updatedAt));
+}
+
 export async function getPlaylistForOwner(ownerId: string, playlistId: string) {
   const rows = await db
     .select()

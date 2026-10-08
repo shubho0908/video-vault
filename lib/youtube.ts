@@ -28,6 +28,10 @@ export function getYouTubeThumbnail(videoId: string) {
   return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
 }
 
-export function getYouTubeEmbedUrl(videoId: string) {
-  return `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1`;
+export function getYouTubeEmbedUrl(
+  videoId: string,
+  options: { autoplay?: boolean } = {}
+) {
+  const autoplay = options.autoplay ? "&autoplay=1&playsinline=1" : "";
+  return `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1${autoplay}`;
 }

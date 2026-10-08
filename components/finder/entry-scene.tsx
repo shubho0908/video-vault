@@ -14,7 +14,8 @@ import { ImagePanel } from "@/components/journal/image-panel";
 import { MarkdownEditor } from "@/components/journal/markdown-editor";
 import { NoteMarkdown } from "@/components/journal/note-markdown";
 import type { JournalEntry } from "@/lib/journal";
-import { getYouTubeEmbedUrl, getYouTubeThumbnail, getYouTubeVideoId } from "@/lib/youtube";
+import { getYouTubeThumbnail, getYouTubeVideoId } from "@/lib/youtube";
+import { VideoEmbed } from "./video-embed";
 
 export type SceneImage = { id: string; filePath: string; altText: string | null; width: number | null; height: number | null; signedUrl: string };
 export type SceneMode = "new" | "view" | "edit";
@@ -273,7 +274,7 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
               <span className="fx-ew-date"><CalendarDays size={13} />Recorded {dateFormat.format(cur.createdAt)}</span>
             </div>
             <h1 className="fx-ew-h1">{cur.title}</h1>
-            <div className="fx-ew-video"><iframe src={getYouTubeEmbedUrl(cur.youtubeId)} title={cur.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen /></div>
+            <div className="fx-ew-video"><VideoEmbed key={cur.youtubeId} videoId={cur.youtubeId} title={cur.title} /></div>
             <div className="fx-ew-sec">Learning Notes</div>
             <div className="fx-ew-notes" data-nodrag><NoteMarkdown markdown={cur.notesMarkdown} images={images} emptyMessage="No notes added yet. Tap Edit to start writing." /></div>
           </article>

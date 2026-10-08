@@ -1,16 +1,18 @@
 import { FinderApp } from "@/components/finder/finder-app";
 import {
-  listEntries,
+  listEntryChoices,
+  listFolders,
   listMemberships,
-  listPlaylists,
 } from "@/lib/journal-cache";
 import { requireOwner } from "@/lib/session";
 
 export default async function DashboardPage() {
   const session = await requireOwner();
-  const [entries, playlists, memberships] = await Promise.all([
-    listEntries(session.user.id),
-    listPlaylists(session.user.id),
+  // The Finder only renders id/title/topic/youtubeId and folder id/name. Fetch and cache exactly that:
+  // never notes_markdown (up to 50 KB per row, which would also blow past the 2 MB data-cache item limit).
+  const [entries, folders, memberships] = await Promise.all([
+    listEntryChoices(session.user.id),
+    listFolders(session.user.id),
     listMemberships(session.user.id),
   ]);
 
@@ -18,8 +20,8 @@ export default async function DashboardPage() {
     <FinderApp
       userName={session.user.name ?? "Account"}
       initial={{
-        entries: entries.map(({ id, title, topic, youtubeId }) => ({ id, title, topic, youtubeId })),
-        folders: [...playlists].reverse().map(({ id, name }) => ({ id, name })),
+        entries,
+        folders: [...folders].reverse(),
         memberships,
       }}
     />

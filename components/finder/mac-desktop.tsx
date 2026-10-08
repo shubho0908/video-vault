@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Layers, Inbox } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
@@ -24,6 +24,57 @@ type Menu = { x: number; y: number; items: MenuItem[] } | null;
 type MenuItem = { label: string; keys?: string; run?: () => void; disabled?: boolean } | "sep";
 
 const DRAG = "application/x-vault-entry";
+
+type TileActions = {
+  focus: (id: string) => void;
+  select: (id: string) => void;
+  open: (id: string) => void;
+  menu: (id: string, x: number, y: number) => void;
+  dragStart: (id: string, dt: DataTransfer) => void;
+  dragEnd: () => void;
+  rowDrag: (id: string, dt: DataTransfer) => void;
+};
+type ActRef = { current: TileActions };
+
+/** Memoized so selecting/dragging one item doesn't re-render every thumbnail in a large library. */
+const EntryTile = memo(function EntryTile({ e, selected, dragging, act }: { e: LibEntry; selected: boolean; dragging: boolean; act: ActRef }) {
+  return (
+    <div
+      role="option"
+      aria-selected={selected}
+      className="fx-item"
+      data-dragging={dragging}
+      draggable
+      tabIndex={0}
+      onFocus={() => act.current.focus(e.id)}
+      onDragStart={ev => act.current.dragStart(e.id, ev.dataTransfer)}
+      onDragEnd={() => act.current.dragEnd()}
+      onPointerDown={ev => (ev.stopPropagation(), act.current.select(e.id))}
+      onDoubleClick={() => act.current.open(e.id)}
+      onContextMenu={ev => (ev.preventDefault(), ev.stopPropagation(), act.current.menu(e.id, ev.clientX, ev.clientY))}
+    >
+      <div className="ic"><img className="fx-thumb" src={thumb(e.youtubeId)} alt="" loading="lazy" decoding="async" draggable={false} /></div>
+      <span className="nm">{e.title}</span>
+    </div>
+  );
+});
+
+const EntryRow = memo(function EntryRow({ e, selected, act }: { e: LibEntry; selected: boolean; act: ActRef }) {
+  return (
+    <tr
+      tabIndex={0}
+      aria-selected={selected}
+      draggable
+      onFocus={() => act.current.focus(e.id)}
+      onDragStart={ev => act.current.rowDrag(e.id, ev.dataTransfer)}
+      onPointerDown={() => act.current.select(e.id)}
+      onDoubleClick={() => act.current.open(e.id)}
+    >
+      <td><span><img src={thumb(e.youtubeId)} alt="" width={26} height={16} loading="lazy" decoding="async" style={{ borderRadius: 2, objectFit: "cover" }} />{e.title}</span></td>
+      <td>{e.topic}</td><td>--</td>
+    </tr>
+  );
+});
 
 function MenuList({ items, close }: { items: MenuItem[]; close: () => void }) {
   return (
@@ -193,6 +244,21 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
     window.addEventListener("keydown", f);
     return () => window.removeEventListener("keydown", f);
   }, []);
+
+  // Stable handler bag for the memoized tiles: they read the latest closures at event time, so a
+  // selection or drag change re-renders only the tiles whose own props changed, not the whole grid.
+  const act = useRef<TileActions>(null!);
+  useEffect(() => {
+    act.current = {
+      focus: id => (wm.focus("finder"), setSel({ kind: "entry", id })),
+      select: id => setSel({ kind: "entry", id }),
+      open: id => router.push(`/entries/${id}`),
+      menu: (id, x, y) => (setSel({ kind: "entry", id }), setCtx({ x, y, items: itemMenu({ kind: "entry", id }) })),
+      dragStart: (id, dt) => (dt.setData(DRAG, id), (dt.effectAllowed = "copyMove"), setDragId(id)),
+      dragEnd: () => setDragId(null),
+      rowDrag: (id, dt) => dt.setData(DRAG, id),
+    };
+  });
 
   const dragWindow = (e: React.PointerEvent) => wm.drag("finder", e);
   const signOut = () => authClient.signOut().then(() => router.push("/sign-in"));
@@ -431,29 +497,9 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
                       </div>
                     );
                   })}
-                  {entries.map(e => {
-                    const s = sel?.kind === "entry" && sel.id === e.id;
-                    return (
-                      <div
-                        key={e.id}
-                        role="option"
-                        aria-selected={s}
-                        className="fx-item"
-                        data-dragging={dragId === e.id}
-                        draggable
-                        tabIndex={0}
-                        onFocus={() => (wm.focus("finder"), setSel({ kind: "entry", id: e.id }))}
-                        onDragStart={ev => (ev.dataTransfer.setData(DRAG, e.id), (ev.dataTransfer.effectAllowed = "copyMove"), setDragId(e.id))}
-                        onDragEnd={() => setDragId(null)}
-                        onPointerDown={ev => (ev.stopPropagation(), setSel({ kind: "entry", id: e.id }))}
-                        onDoubleClick={() => router.push(`/entries/${e.id}`)}
-                        onContextMenu={ev => (ev.preventDefault(), ev.stopPropagation(), setSel({ kind: "entry", id: e.id }), setCtx({ x: ev.clientX, y: ev.clientY, items: itemMenu({ kind: "entry", id: e.id }) }))}
-                      >
-                        <div className="ic"><img className="fx-thumb" src={thumb(e.youtubeId)} alt="" draggable={false} /></div>
-                        <span className="nm">{e.title}</span>
-                      </div>
-                    );
-                  })}
+                  {entries.map(e => (
+                    <EntryTile key={e.id} e={e} selected={sel?.kind === "entry" && sel.id === e.id} dragging={dragId === e.id} act={act} />
+                  ))}
                 </div>
               ) : (
                 <table className="fx-list" style={{ tableLayout: "fixed" }}>
@@ -466,10 +512,7 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
                       </tr>
                     ))}
                     {entries.map(e => (
-                      <tr key={e.id} tabIndex={0} onFocus={() => (wm.focus("finder"), setSel({ kind: "entry", id: e.id }))} aria-selected={sel?.kind === "entry" && sel.id === e.id} draggable onDragStart={ev => ev.dataTransfer.setData(DRAG, e.id)} onPointerDown={() => setSel({ kind: "entry", id: e.id })} onDoubleClick={() => router.push(`/entries/${e.id}`)}>
-                        <td><span><img src={thumb(e.youtubeId)} alt="" width={26} height={16} style={{ borderRadius: 2, objectFit: "cover" }} />{e.title}</span></td>
-                        <td>{e.topic}</td><td>--</td>
-                      </tr>
+                      <EntryRow key={e.id} e={e} selected={sel?.kind === "entry" && sel.id === e.id} act={act} />
                     ))}
                   </tbody>
                 </table>

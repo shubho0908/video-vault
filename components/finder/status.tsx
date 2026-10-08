@@ -15,14 +15,19 @@ type Battery = { level: number; charging: boolean } | null | undefined;
 export function useBattery(): Battery {
   const [b, setB] = useState<Battery>(undefined);
   useEffect(() => {
-    const nav = navigator as Navigator & { getBattery?: () => Promise<{ level: number; charging: boolean; addEventListener: (t: string, f: () => void) => void }> };
+    const nav = navigator as Navigator & { getBattery?: () => Promise<{ level: number; charging: boolean; addEventListener: (t: string, f: () => void) => void; removeEventListener: (t: string, f: () => void) => void }> };
     if (!nav.getBattery) return setB(null);
+    let off: (() => void) | undefined;
+    let dead = false;
     nav.getBattery().then(m => {
       const read = () => setB({ level: m.level, charging: m.charging });
       read();
       m.addEventListener("levelchange", read);
       m.addEventListener("chargingchange", read);
+      off = () => (m.removeEventListener("levelchange", read), m.removeEventListener("chargingchange", read));
+      if (dead) off();
     }, () => setB(null));
+    return () => ((dead = true), off?.());
   }, []);
   return b;
 }
@@ -30,11 +35,12 @@ export function useBattery(): Battery {
 export function useConnection() {
   const [c, setC] = useState<{ type?: string; down?: number } | null>(null);
   useEffect(() => {
-    const con = (navigator as Navigator & { connection?: { effectiveType?: string; downlink?: number; addEventListener: (t: string, f: () => void) => void } }).connection;
+    const con = (navigator as Navigator & { connection?: { effectiveType?: string; downlink?: number; addEventListener: (t: string, f: () => void) => void; removeEventListener: (t: string, f: () => void) => void } }).connection;
     if (!con) return;
     const read = () => setC({ type: con.effectiveType, down: con.downlink });
     read();
     con.addEventListener("change", read);
+    return () => con.removeEventListener("change", read);
   }, []);
   return c;
 }

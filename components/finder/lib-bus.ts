@@ -37,9 +37,10 @@ export const bus = {
   prune: (entries: LibEntry[]) => {
     if (s === empty || (!s.added.length && !s.removed.size && !Object.keys(s.patched).length)) return;
     const ids = new Set(entries.map(e => e.id));
+    const byId = new Map(entries.map(e => [e.id, e]));
     const patched: S["patched"] = {};
     for (const [id, p] of Object.entries(s.patched)) {
-      const cur = entries.find(e => e.id === id);
+      const cur = byId.get(id);
       if (cur && Object.entries(p).some(([k, v]) => cur[k as keyof LibEntry] !== v)) patched[id] = p;
     }
     set({ added: s.added.filter(x => !ids.has(x.id)), removed: new Set([...s.removed].filter(id => ids.has(id))), patched });

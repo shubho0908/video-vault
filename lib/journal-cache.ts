@@ -7,6 +7,7 @@ import {
   getPlaylistForOwner as readPlaylist,
   listEntries as readEntries,
   listEntryChoices as readEntryChoices,
+  listFolders as readFolders,
   listMemberships as readMemberships,
   listPlaylists as readPlaylists,
   listTopics as readTopics,
@@ -114,6 +115,12 @@ export function listPlaylists(ownerId: string) {
     ["playlists", ownerId],
     [ownerPlaylistsTag(ownerId), ownerEntriesTag(ownerId)],
     () => readPlaylists(ownerId)
+  );
+}
+
+export function listFolders(ownerId: string) {
+  return cached(["folders", ownerId], [ownerPlaylistsTag(ownerId)], () =>
+    readFolders(ownerId)
   );
 }
 

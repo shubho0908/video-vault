@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   readChoices: vi.fn(),
   readTopics: vi.fn(),
   readPlaylists: vi.fn(),
+  readFolders: vi.fn(),
   readPlaylist: vi.fn(),
   readPlaylistEntries: vi.fn(),
 }));
@@ -20,6 +21,7 @@ vi.mock("@/lib/journal", () => ({
   listEntryChoices: mocks.readChoices,
   listTopics: mocks.readTopics,
   listPlaylists: mocks.readPlaylists,
+  listFolders: mocks.readFolders,
   getPlaylistForOwner: mocks.readPlaylist,
   getPlaylistEntries: mocks.readPlaylistEntries,
 }));
@@ -28,6 +30,7 @@ import {
   getEntryForOwner,
   getPlaylistForOwner,
   listEntries,
+  listFolders,
 } from "@/lib/journal-cache";
 
 describe("private journal cache isolation", () => {
@@ -85,6 +88,19 @@ describe("private journal cache isolation", () => {
       "owner-a",
       "sql",
       "db",
+    ]);
+  });
+
+  it("caches folder names under the owner's playlist tag only", async () => {
+    mocks.readFolders.mockResolvedValue([]);
+    await listFolders("owner-a");
+    expect(mocks.unstableCache.mock.calls[0][1]).toEqual([
+      "v2-date-tags",
+      "folders",
+      "owner-a",
+    ]);
+    expect(mocks.unstableCache.mock.calls[0][2].tags).toEqual([
+      "journal:owner-a:playlists",
     ]);
   });
 

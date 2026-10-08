@@ -10,12 +10,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import DashboardLoading from "@/app/dashboard/loading";
 import EntryLoading from "@/app/entries/[entryId]/loading";
 import { PerformanceLink } from "@/components/journal/performance-link";
+import { Welcome } from "@/components/finder/welcome";
 
 const prefetch = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ prefetch }),
   usePathname: () => "/",
+}));
+vi.mock("@/lib/auth-client", () => ({
+  authClient: { signIn: { social: vi.fn() } },
 }));
 
 function render(element: React.ReactElement) {
@@ -56,14 +60,34 @@ describe("navigation performance boundaries", () => {
     expect(prefetch).toHaveBeenCalledWith("/entries/abc");
   });
 
-  it("renders loading boundaries synchronously as skeleton trees", () => {
+  it("renders loading boundaries synchronously inside the Finder shell", () => {
     // entry routes now render inside the Finder/iOS scene and have no page skeleton
     expect(renderToStaticMarkup(createElement(EntryLoading))).toBe("");
-    for (const Loading of [DashboardLoading]) {
-      const markup = renderToStaticMarkup(createElement(Loading));
-      expect(markup).toContain("animate-pulse");
-      expect(markup).toContain("<main");
-    }
+    const markup = renderToStaticMarkup(createElement(DashboardLoading));
+    expect(markup).toContain('class="fx fx-desktop"');
+  });
+
+  it("remembers a dismissed welcome intro on the next visit", () => {
+    const key = "shubhojeets-videos:intro-seen";
+    const storage = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+    });
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query.includes("min-width"),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    const first = render(createElement(Welcome));
+    act(() => first.container.querySelector<HTMLElement>(".wl-intro")!.click());
+    expect(storage.get(key)).toBe("1");
+    act(() => first.root.unmount());
+    first.container.remove();
+    const second = render(createElement(Welcome));
+    expect(second.container.querySelector(".wl-intro")).toBeNull();
+    act(() => second.root.unmount());
+    second.container.remove();
+    vi.unstubAllGlobals();
   });
 });
-

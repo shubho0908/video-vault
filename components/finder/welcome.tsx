@@ -18,6 +18,9 @@ const subscribe = (cb: () => void) => {
 
 // "hello" is written first, then these cycle (about 3.6s together with the writing).
 const greetings = ["नमस्ते", "Bonjour", "Hola", "こんにちは", "Ciao", "Hello"];
+const SEEN_KEY = "shubhojeets-videos:intro-seen";
+const introSeen = () => { try { return localStorage.getItem(SEEN_KEY) === "1"; } catch { return false; } };
+const markIntroSeen = () => { try { localStorage.setItem(SEEN_KEY, "1"); } catch {} };
 const WRITE_MS = 2100;
 const STEP_MS = 300;
 const OUT_MS = 500;
@@ -125,12 +128,12 @@ function Auth({ desktop, restricted }: { desktop: boolean; restricted: boolean }
 /** Opening "hello" sequence, then the macOS (desktop) or iOS (touch) sign-in screen. */
 export function Welcome({ intro = true, restricted = false }: { intro?: boolean; restricted?: boolean }) {
   const desktop = useSyncExternalStore(subscribe, () => matchMedia(query).matches, () => null);
-  const [showIntro, setShowIntro] = useState(intro);
+  const [showIntro, setShowIntro] = useState(() => intro && !introSeen());
   if (desktop === null) return <div className="fx wl-root wl-blank" />;
   return (
     <div className="fx wl-root" data-os={desktop ? "mac" : "ios"}>
       <Auth desktop={desktop} restricted={restricted} />
-      {showIntro ? <Intro onDone={() => setShowIntro(false)} /> : null}
+      {showIntro ? <Intro onDone={() => (markIntroSeen(), setShowIntro(false))} /> : null}
     </div>
   );
 }

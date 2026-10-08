@@ -40,7 +40,7 @@ const doc: LegalDoc = {
             By using the service you agree to this policy and to our{" "}
             <a
               href="/terms"
-              className="text-primary underline decoration-primary/40 underline-offset-[0.18em]"
+              className="pg-a"
             >
               Terms of Service
             </a>
@@ -57,7 +57,7 @@ const doc: LegalDoc = {
           <UL
             items={[
               <>
-                <strong className="font-medium text-foreground">
+                <strong className="pg-strong">
                   Google sign-in data.
                 </strong>{" "}
                 When you sign in with Google, we receive your basic profile
@@ -66,7 +66,7 @@ const doc: LegalDoc = {
                 sensitive or restricted Google scopes.
               </>,
               <>
-                <strong className="font-medium text-foreground">
+                <strong className="pg-strong">
                   Content you create.
                 </strong>{" "}
                 Journal entries you write — titles, notes, and links to unlisted
@@ -74,7 +74,7 @@ const doc: LegalDoc = {
                 entries.
               </>,
               <>
-                <strong className="font-medium text-foreground">
+                <strong className="pg-strong">
                   Essential technical data.
                 </strong>{" "}
                 A session cookie that keeps you signed in, and standard server
@@ -118,7 +118,7 @@ const doc: LegalDoc = {
               href="https://developers.google.com/terms/api-services-user-data-policy"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary underline decoration-primary/40 underline-offset-[0.18em]"
+              className="pg-a"
             >
               Google API Services User Data Policy
             </a>
@@ -260,9 +260,7 @@ const doc: LegalDoc = {
 
 export default function PrivacyPage() {
   return (
-    <LegalDocument
-      doc={doc}
-      other={{ href: "/terms", label: "Terms of Service" }}
-    />
+    <LegalDocument doc={doc} />
   );
 }
+

@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 export function FolderIcon({ size = 64, id = "f" }: { size?: number; id?: string }) {
   return (

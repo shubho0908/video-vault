@@ -225,13 +225,14 @@
 .fx-cc-dot[data-on="true"] { background: var(--fx-accent); }
 .fx-range { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; border-radius: 11px; margin: 6px 0 0; background: linear-gradient(90deg, #fff var(--p), rgba(120,120,128,.35) var(--p)); outline: 0; display: block; }
 .fx-range::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
-.fx-notif { position: absolute; top: 30px; right: 8px; bottom: 8px; width: 340px; border-radius: 22px; padding: 18px; z-index: 55; animation: fx-slide-in .4s cubic-bezier(.32,.72,0,1) both; }
+.fx-notif { position: absolute; top: 30px; right: 8px; bottom: 8px; width: min(340px, calc(100% - 16px)); container-type: inline-size; overflow-y: auto; overscroll-behavior: contain; border-radius: 22px; padding: 18px; z-index: 55; animation: fx-slide-in .4s cubic-bezier(.32,.72,0,1) both; }
 @keyframes fx-slide-in { from { transform: translateX(110%); } to { transform: none; } }
 .fx-notif-x { position: absolute; right: 14px; top: 10px; font-size: 18px; opacity: .5; }
 .fx-notif-date { font-size: 22px; font-weight: 700; } .fx-notif-date small { display: block; font-size: 13px; font-weight: 500; color: var(--fx-label-2); }
-.fx-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-top: 16px; text-align: center; font-size: 12px; background: color-mix(in srgb, var(--fx-label) 6%, transparent); border-radius: 16px; padding: 12px; }
+.fx-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); justify-items: center; gap: 2px; margin-top: 16px; text-align: center; font-size: 12px; background: color-mix(in srgb, var(--fx-label) 6%, transparent); border-radius: 16px; padding: 12px; }
 .fx-cal b { grid-column: 1 / -1; text-align: left; font-size: 13px; margin-bottom: 6px; }
-.fx-cal span { height: 26px; display: grid; place-items: center; border-radius: 50%; } .fx-cal .h { color: var(--fx-label-2); font-weight: 600; }
+.fx-cal span { width: min(100%, 34px); aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%; font-size: clamp(10px, 4cqi, 14px); line-height: 1; } .fx-cal .h { color: var(--fx-label-2); font-weight: 600; }
+.fx-notif.fx-glass { -webkit-backdrop-filter: blur(16px) saturate(190%); backdrop-filter: blur(16px) saturate(190%); }
 .fx-cal .today { background: var(--fx-accent); color: #fff; font-weight: 700; }
 .fx-spot-back { position: absolute; inset: 0; z-index: 90; display: grid; place-items: start center; padding-top: 18vh; }
 .fx-spot { width: 620px; border-radius: 22px; overflow: hidden; animation: fx-pop .2s cubic-bezier(.2,.9,.3,1) both; }
@@ -419,7 +420,7 @@
 .fx-cc-srow .fx-range { height: 9px; border-radius: 5px; background: linear-gradient(90deg, #fff var(--p), rgba(255,255,255,.28) var(--p)); }
 .fx-cc-slider b { margin-bottom: 2px; display: block; }
 /* transform/opacity left on the popover by fill-mode:both made it a backdrop root, so tiles could not blur the wallpaper */
-.fx-cc-pop { animation-name: fx-pop-cc !important; } @keyframes fx-pop-cc { from { opacity: 0; } to { opacity: 1; } }
+
 /* Menus pass: Tahoe-style glass panel, 16px radius, 24px rows, 8px pill hover, 120ms open */
 .fx-menu { border-radius: 16px; padding: 6px; -webkit-backdrop-filter: blur(40px) saturate(190%); backdrop-filter: blur(40px) saturate(190%); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.35), 0 12px 36px rgba(0,0,0,.22), 0 0 0 .5px rgba(0,0,0,.12); animation: fx-menu-in .12s cubic-bezier(.2,.8,.2,1) backwards; transform-origin: top left; }
 .fx-menu-row { height: 24px; line-height: 24px; border-radius: 8px; padding: 0 10px; font-size: 13px; }
@@ -430,7 +431,7 @@
 .fx-portal { position: fixed; inset: 0; z-index: 200; pointer-events: none; font-family: var(--fx-font); color: var(--fx-label); }
 .fx-portal > * { pointer-events: auto; }
 .fx-portal > div.fx-cc-pop { display: block; height: auto; position: absolute; top: 34px !important; right: 8px !important; padding: 0; }
-.fx-cc-pop, .fx-portal > .fx-extra, .fx-portal > .fx-menu { animation-fill-mode: backwards !important; }
+.fx-portal > .fx-extra, .fx-portal > .fx-menu { animation-fill-mode: backwards !important; }
 /* pass15: light menus near-white frosted, translucent hover pill, brighter frosted CC tiles */
 .fx { --fx-menu-bg: rgba(246,246,250,.66); --fx-pill: rgba(0,0,0,.09); }
 .dark .fx { --fx-menu-bg: rgba(44,44,52,.62); --fx-pill: rgba(255,255,255,.16); }
@@ -730,9 +731,10 @@
 }
 @container fxmain (max-width: 340px) { .fx-seg button { width: 28px; } }
 
-/* control center: one backdrop layer on the popover, tiles carry no backdrop-filter of their own (avoids per-frame multi-layer resampling flicker) */
-.fx-portal > div.fx-cc-pop { -webkit-backdrop-filter: blur(28px) saturate(170%) brightness(.96); backdrop-filter: blur(28px) saturate(170%) brightness(.96); border-radius: 36px; padding: 0; contain: paint; }
-.fx-cc-pop .fx-g { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; transition: none; }
+/* control center: glass lives on each tile (siblings, never nested); the popover itself paints nothing, so the gaps are plain wallpaper */
+.fx-portal > div.fx-cc-pop { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: none !important; box-shadow: none !important; animation: none !important; padding: 0; }
+.fx-cc-pop .fx-g { -webkit-backdrop-filter: blur(16px) saturate(150%) brightness(.96) !important; backdrop-filter: blur(16px) saturate(150%) brightness(.96) !important; transition: none; box-shadow: inset 0 1px 0 rgba(255,255,255,.6), inset 0 0 0 1px rgba(255,255,255,.3) !important; }
+.dark .fx-cc-pop .fx-g { box-shadow: inset 0 1px 0 rgba(255,255,255,.25), inset 0 0 0 1px rgba(255,255,255,.12) !important; }
 .fx-cc-dot, .fx-cc-ic, .fx-cc-circ { transition: none; }
 .fx-dock button:hover { transform: none; }
 @container fxmain (max-width: 400px) { .fx-toolbar > .fx-search-w { display: none; } }
@@ -760,10 +762,8 @@
 
 /* blur audit: realistic macOS/iOS 26 values, one definition per surface, redundant layers removed */
 .fx-window, .fx-ew-sheet { -webkit-backdrop-filter: blur(18px) saturate(140%) !important; backdrop-filter: blur(18px) saturate(140%) !important; }
-.fx-menu, .fx-portal .fx-menu, .fx-extra { -webkit-backdrop-filter: blur(22px) saturate(150%) !important; backdrop-filter: blur(22px) saturate(150%) !important; }
+.fx-menu, .fx-portal .fx-menu, .fx-extra:not(.fx-cc-pop) { -webkit-backdrop-filter: blur(22px) saturate(150%) !important; backdrop-filter: blur(22px) saturate(150%) !important; }
 .fx-g, .fx-pill, .fx-seg, .fx-search, .fx-dock { -webkit-backdrop-filter: blur(12px) saturate(140%) !important; backdrop-filter: blur(12px) saturate(140%) !important; }
-.fx-portal > div.fx-cc-pop { -webkit-backdrop-filter: blur(20px) saturate(150%) brightness(.96) !important; backdrop-filter: blur(20px) saturate(150%) brightness(.96) !important; }
-.fx-cc-pop .fx-g { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 .fx-ql > div, .fx-keys { -webkit-backdrop-filter: blur(24px) saturate(150%) !important; backdrop-filter: blur(24px) saturate(150%) !important; }
 .fx-keys-back, .fx-keys-back[data-held="true"] { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 .fx-ios-dock, .fx-ios-wg, .fx-ew-bar, .wl-btn { -webkit-backdrop-filter: blur(14px) saturate(140%) !important; backdrop-filter: blur(14px) saturate(140%) !important; }

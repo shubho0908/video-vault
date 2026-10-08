@@ -38,6 +38,6 @@ export function evalExpr(src: string): number | null {
 }
 
 export function formatNum(v: number): string {
-  const r = Math.round(v * 1e10) / 1e10 + 0; // +0 so an exact 0 never renders as "-0"
+  const r = Math.round(v * 1e10) / 1e10;
   return r.toLocaleString("en-US", { maximumFractionDigits: 10, useGrouping: false });
 }

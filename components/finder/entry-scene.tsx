@@ -86,11 +86,21 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
     else router.back();
   }, [desktop, router, standalone]);
 
+  const resetSheet = useCallback(() => {
+    sheetY.current = 0;
+    if (frame.current) {
+      frame.current.style.transition = `transform .4s ${SHEET_EASE}`;
+      frame.current.style.transform = "";
+    }
+    if (backRef.current) backRef.current.style.opacity = "";
+  }, []);
+
   const requestClose = useCallback(() => {
+    if (!desktop && (saving || dirty)) resetSheet();
     if (saving) return;
     if (dirty) setAlert("discard");
     else void leave();
-  }, [saving, dirty, leave]);
+  }, [desktop, saving, dirty, leave, resetSheet]);
 
   function save() {
     if (saving || closing.current || !values.title.trim() || !vid) return;
@@ -211,7 +221,7 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
   }
   // iOS: pull the sheet down to dismiss
   function sheetStart(e: RPointerEvent) {
-    if ((e.target as HTMLElement).closest("button,input,a")) return;
+    if (saving || (e.target as HTMLElement).closest("button,input,a")) return;
     const sy = e.clientY;
     const t0 = performance.now();
     const el = e.currentTarget as HTMLElement;
@@ -229,11 +239,7 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
       el.removeEventListener("pointerup", up);
       const v = dy / Math.max(performance.now() - t0, 1);
       if (dy > 140 || v > 0.6) requestClose();
-      else {
-        sheetY.current = 0;
-        if (sheet) (sheet.style.transition = "transform .4s cubic-bezier(.32,.72,0,1)", sheet.style.transform = "");
-        if (back) back.style.opacity = "";
-      }
+      else resetSheet();
     };
     el.addEventListener("pointermove", mv);
     el.addEventListener("pointerup", up);

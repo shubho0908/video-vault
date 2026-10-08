@@ -164,6 +164,7 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
       const typing = (e.target as HTMLElement)?.tagName === "INPUT";
       if (typing) return;
       const mod = e.metaKey || e.ctrlKey;
+      const itemFocused = (e.target as HTMLElement)?.matches(".fx-grid > .fx-item, .fx-list tbody tr");
       if (mod && e.key === "/") return (e.preventDefault(), setKeys(k => (k === "sheet" ? null : "sheet")));
       if (e.key === "Escape" && keys) return setKeys(null);
       if (mod && !e.shiftKey && e.key.toLowerCase() === "n") return (e.preventDefault(), router.push("/entries/new"));
@@ -178,9 +179,9 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
       else if (mod && e.key === "[") (e.preventDefault(), back());
       else if (mod && e.key === "]") (e.preventDefault(), fwd());
       else if (mod && e.key === "ArrowDown") (e.preventDefault(), openSel());
-      else if (e.key === "Enter" && sel?.kind === "entry") (e.preventDefault(), openSel());
-      else if (e.key === "Enter" && sel?.kind === "folder") setRenaming(sel.id);
-      else if (e.key === " " && sel?.kind === "entry") {
+      else if (e.key === "Enter" && itemFocused && sel?.kind === "entry") (e.preventDefault(), openSel());
+      else if (e.key === "Enter" && itemFocused && sel?.kind === "folder") setRenaming(sel.id);
+      else if (e.key === " " && itemFocused && sel?.kind === "entry") {
         e.preventDefault();
         setQuick(q => (q ? null : data.entries.find(x => x.id === sel.id) ?? null));
       } else if (e.key === "Escape") (setQuick(null), setCtx(null), setMenuBar(null));

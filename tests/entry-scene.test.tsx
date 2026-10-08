@@ -157,3 +157,55 @@ it("switches to view mode only after the edit succeeds", async () => {
   expect(container.querySelector("h1")!.textContent).toBe("Edited");
   expect(mocks.refresh).toHaveBeenCalledOnce();
 });
+
+it.each([true, false])(
+  "restores the phone sheet after a refused swipe, saving=%s",
+  async saving => {
+    vi.stubGlobal("matchMedia", () => ({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    let resolve!: (value: { ok: false; error: string }) => void;
+    mocks.save.mockReturnValue(
+      new Promise(r => {
+        resolve = r;
+      })
+    );
+    mount();
+    editTitle();
+    if (saving) act(() => button("Save").click());
+    const nav = container.querySelector<HTMLElement>(".fx-ew-nav")!;
+    nav.setPointerCapture = vi.fn();
+    act(() => {
+      nav.dispatchEvent(
+        new MouseEvent("pointerdown", { clientY: 0, bubbles: true })
+      );
+      nav.dispatchEvent(
+        new MouseEvent("pointermove", { clientY: 250, bubbles: true })
+      );
+      nav.dispatchEvent(
+        new MouseEvent("pointerup", { clientY: 250, bubbles: true })
+      );
+    });
+    expect(
+      container.querySelector<HTMLElement>(".fx-ew-sheet")!.style.transform
+    ).toBe("");
+    expect(
+      container.querySelector<HTMLElement>(".fx-ew-back")!.style.opacity
+    ).toBe("");
+    expect(mocks.push).not.toHaveBeenCalled();
+    if (saving)
+      await act(async () => resolve({ ok: false, error: "Save failed" }));
+    else {
+      expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+      const keep = [
+        ...document.querySelectorAll<HTMLButtonElement>("button"),
+      ].find(b => b.textContent === "Keep Editing")!;
+      act(() => keep.click());
+      expect(
+        container.querySelector<HTMLElement>(".fx-ew-sheet")!.style.transform
+      ).toBe("");
+    }
+  }
+);

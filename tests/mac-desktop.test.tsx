@@ -63,11 +63,14 @@ function button(label: string) {
   )!;
 }
 function key(target: HTMLElement, key: string, ctrlKey = false) {
-  act(() =>
-    target.dispatchEvent(
-      new KeyboardEvent("keydown", { key, ctrlKey, bubbles: true })
-    )
-  );
+  const event = new KeyboardEvent("keydown", {
+    key,
+    ctrlKey,
+    bubbles: true,
+    cancelable: true,
+  });
+  act(() => target.dispatchEvent(event));
+  return event;
 }
 function mountDesktop() {
   const lib = {
@@ -105,6 +108,21 @@ it.each(["icons", "list"])(
     ).toBe("New Entry");
   }
 );
+
+it("leaves toolbar Enter and Space actions intact after selecting an entry", () => {
+  mountDesktop();
+  const entry = container.querySelectorAll<HTMLElement>(
+    ".fx-grid [role=option]"
+  )[1];
+  act(() => entry.focus());
+  const toolbar = button("as List");
+  act(() => toolbar.focus());
+  expect(key(toolbar, "Enter").defaultPrevented).toBe(false);
+  expect(key(toolbar, " ").defaultPrevented).toBe(false);
+  expect(push).not.toHaveBeenCalled();
+  act(() => toolbar.click());
+  expect(container.querySelector(".fx-list")).not.toBeNull();
+});
 
 it("renames a folder from its focused list row", () => {
   mountDesktop();

@@ -128,3 +128,4 @@ describe("owner-scoped journal writes", () => {
     expect(mocks.deleteWhere).toHaveBeenCalledTimes(1);
   });
 });
+

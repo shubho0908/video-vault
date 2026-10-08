@@ -47,3 +47,4 @@ describe("journal cache Date serialization", () => {
     expect(result.description).toBe("2026-09-14T10:00:00.000Z");
   });
 });
+

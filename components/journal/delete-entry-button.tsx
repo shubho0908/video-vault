@@ -86,3 +86,4 @@ export function DeleteEntryButton({
     </Dialog>
   );
 }
+

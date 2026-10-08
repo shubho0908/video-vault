@@ -1,0 +1,66 @@
+.wl-root { position: fixed; inset: 0; overflow: hidden; font-family: var(--fx-font); color: #fff; }
+.wl-blank { background: #1b1170; }
+.wl-wall { position: absolute; inset: -4%; background: var(--fx-wall); }
+.wl-auth { position: absolute; inset: 0; animation: wl-auth-in .6s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes wl-auth-in { from { opacity: 0; transform: scale(1.04); filter: blur(12px); } to { opacity: 1; transform: none; filter: none; } }
+.wl-intro { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; background: var(--wl-bg); transition: opacity .5s ease, transform .5s ease; }
+.wl-intro[data-out="true"] { opacity: 0; transform: scale(1.06); pointer-events: none; }
+.wl-write { width: min(78vw, 560px); height: auto; overflow: visible; }
+.wl-p { stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0; animation: wl-draw ease-in-out forwards; }
+.wl-p0 { animation-duration: .48s; } .wl-p1 { animation-duration: 1.68s; animation-delay: .42s; }
+@keyframes wl-draw { 1% { opacity: 1; } to { stroke-dashoffset: 0; opacity: 1; } }
+.wl-greet { padding: 0 .1em; line-height: 1.15; background: linear-gradient(100deg, var(--wl-c0), var(--wl-c1) 55%, var(--wl-c2)); -webkit-background-clip: text; background-clip: text; color: transparent; white-space: nowrap; }
+.wl-greet { font-size: clamp(72px, 14vw, 150px); line-height: 1.1; padding: 0 .1em; background: linear-gradient(100deg, var(--wl-c0), var(--wl-c1) 55%, var(--wl-c2)); -webkit-background-clip: text; background-clip: text; color: transparent; white-space: nowrap; }
+.wl-write { clip-path: inset(-10% 100% -20% 0); animation: wl-write 1.3s cubic-bezier(.45,.05,.25,1) forwards; filter: drop-shadow(0 0 18px rgba(10,132,255,.35)); }
+@keyframes wl-write { to { clip-path: inset(-10% -4% -20% 0); } }
+.wl-greet { font-weight: 600; letter-spacing: -.02em; font-size: clamp(56px, 11vw, 120px); font-family: -apple-system, BlinkMacSystemFont, system-ui, "Noto Sans", "Noto Sans Devanagari", "Noto Sans JP", "Noto Sans KR", "Noto Sans SC", sans-serif; animation: wl-greet .3s ease both; }
+@keyframes wl-greet { from { opacity: 0; filter: blur(10px); transform: scale(.96); } to { opacity: 1; filter: none; transform: none; } }
+
+/* macOS login window feel */
+.wl-mbar { position: absolute; top: 0; left: 0; right: 0; height: 28px; display: flex; justify-content: space-between; padding: 0 14px; align-items: center; font-size: 13px; font-weight: 500; text-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.wl-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding-bottom: 40px; }
+.wl-avatar { width: 104px; height: 104px; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 1px rgba(255,255,255,.4), 0 10px 30px rgba(0,0,0,.3); background: rgba(255,255,255,.2); }
+.wl-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.wl-center h1 { margin: 14px 0 0; font-size: 21px; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,.35); }
+.wl-sub { margin: 0 0 14px; font-size: 13px; opacity: .85; text-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.wl-btn { height: 40px; min-width: 232px; padding: 0 22px; border-radius: 20px; font-size: 14px; font-weight: 600; color: #fff; background: rgba(255,255,255,.22); -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(30px) saturate(170%); box-shadow: inset 0 0 0 1px rgba(255,255,255,.35), inset 0 1.5px 0 rgba(255,255,255,.55), 0 6px 18px rgba(0,20,80,.2); transition: transform .15s ease, background .15s ease; }
+.wl-btn:hover { background: rgba(255,255,255,.3); } .wl-btn:active { transform: scale(.97); } .wl-btn:disabled { opacity: .7; }
+.wl-legal { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; font-size: 12px; opacity: .8; } .wl-legal a { text-decoration: underline; text-underline-offset: 2px; }
+.wl-alert { margin: 12px 0 0; padding: 8px 12px; border-radius: 12px; font-size: 12.5px; background: rgba(255,59,48,.35); box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); max-width: 300px; text-align: center; }
+
+/* iOS lock screen feel */
+.wl-lock { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 56px); left: 0; right: 0; display: flex; flex-direction: column; align-items: center; text-shadow: 0 1px 6px rgba(0,0,0,.18); }
+.wl-date { margin: 8px 0 0; font-size: 20px; font-weight: 600; opacity: .92; }
+.wl-time { margin: -6px 0 0; font-size: 92px; font-weight: 700; letter-spacing: -.02em; line-height: 1.05; font-variant-numeric: tabular-nums; background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,255,255,.7)); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; }
+.wl-bottom { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 34px); display: flex; flex-direction: column; align-items: center; padding: 0 28px; }
+.wl-ios .wl-btn { width: 100%; max-width: 340px; height: 56px; border-radius: 28px; font-size: 17px; }
+.wl-ios .wl-legal { position: static; margin: 16px 0 0; }
+.wl-ios .wl-sub { font-size: 15px; margin-bottom: 14px; }
+.wl-home { position: absolute; left: 50%; bottom: 8px; width: 138px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.85); transform: translateX(-50%); }
+.wl-avatar-sm { width: 64px; height: 64px; margin-bottom: 4px; }
+.wl-avatar img { object-position: center; }
+
+/* Intro sits on a wallpaper-like backdrop (real Setup "hello"/"welcome" screens do, they are not black) */
+.wl-root[data-os="mac"] { --wl-c0: #8fb0ff; --wl-c1: #7fd3e6; --wl-c2: #9ff0c4;
+  --wl-bg: radial-gradient(60% 55% at 50% -5%, #b9e08a 0%, rgba(120,200,160,.0) 70%), conic-gradient(from 200deg at 50% -10%, #1f4fd0, #2fa8a8 12%, #1c1a9a 24%, #2d8fd0 38%, #8fd6a0 48%, #1f3fc0 60%, #2a1590 78%, #1f4fd0); }
+.wl-root[data-os="ios"] { --wl-c0: #ffe3d8; --wl-c1: #fff3ec; --wl-c2: #ffd5d0;
+  --wl-bg: radial-gradient(120% 50% at 10% 8%, #e9c9a2 0%, transparent 60%), linear-gradient(165deg, #c9b8a8 0%, #a8968a 32%, #efe6dd 48%, #8f7f76 66%, #2c2724 100%); }
+.wl-s0 { stop-color: var(--wl-c0); } .wl-s1 { stop-color: var(--wl-c1); } .wl-s2 { stop-color: var(--wl-c2); }
+
+
+/* jelly / glass tube lettering: shadow, dark rim, gradient body, soft inner light, thin specular (layered strokes) */
+.wl-write { filter: none; width: min(80vw, 600px); }
+.wl-sh { stroke: rgba(0,0,0,.38); stroke-width: 26; }
+.wl-rim { stroke: var(--wl-rim); stroke-width: 29; }
+.wl-body { stroke: url(#wl-g); stroke-width: 24; }
+.wl-in { stroke: rgba(255,255,255,.5); stroke-width: 11; }
+.wl-hl { stroke: rgba(255,255,255,.95); stroke-width: 2.6; }
+.wl-root[data-os="mac"] { --wl-rim: #2c58c9; --wl-b0: #cfe0ff; --wl-b1: #7fa8ff; --wl-b2: #62cfae; --wl-edge: rgba(30,60,170,.55); }
+.wl-root[data-os="ios"] { --wl-rim: #a58b7e; --wl-b0: #fff6f1; --wl-b1: #f5ddd2; --wl-b2: #e4bfb2; --wl-edge: rgba(120,90,80,.5); }
+.wl-root[data-os="mac"] { --wl-c0: #7fa6ff; --wl-c1: #78c6f0; --wl-c2: #8ee8b8; }
+.wl-root[data-os="ios"] { --wl-c0: #fbe6dc; --wl-c1: #f9ece5; --wl-c2: #f2d4c9; }
+.wl-greet { font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, "Noto Sans", "Noto Sans Devanagari", "Noto Sans JP", "Noto Sans KR", "Noto Sans SC", sans-serif; font-weight: 800; letter-spacing: -.01em;
+  background: linear-gradient(180deg, var(--wl-b0) 0%, var(--wl-b1) 38%, var(--wl-b2) 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  -webkit-text-stroke: 2px var(--wl-edge); paint-order: stroke fill; filter: drop-shadow(0 4px 5px rgba(0,0,0,.3)) drop-shadow(0 -1px 0 rgba(255,255,255,.55)); }
+
+.wl-root[data-os] { --wl-bg: var(--fx-wall); }

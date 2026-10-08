@@ -71,3 +71,4 @@ describe("note Markdown rendering", () => {
     expect(markup).toContain("hljs-comment");
   });
 });
+

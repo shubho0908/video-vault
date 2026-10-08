@@ -24,9 +24,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
+  modal,
+}: Readonly<{ children: React.ReactNode; modal: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* preload the wallpaper the current viewport will paint (dark is the default theme) */}
+        <link rel="preload" as="image" type="image/avif" href="/wp/mac-dark-1280.avif" media="(min-width: 1024px) and (hover: hover) and (pointer: fine) and (max-width: 1499px)" fetchPriority="high" />
+        <link rel="preload" as="image" type="image/avif" href="/wp/mac-dark-2048.avif" media="(min-width: 1500px) and (hover: hover) and (pointer: fine)" fetchPriority="high" />
+        <link rel="preload" as="image" type="image/avif" href="/wp/ios-dark-645.avif" media="(max-width: 499px), (hover: none)" fetchPriority="high" />
+      </head>
       <body
         className={`${sans.variable} ${mono.variable} ${serif.variable} antialiased`}
       >
@@ -36,8 +43,10 @@ export default function RootLayout({
           enableSystem={false}
         >
           {children}
+          {modal}
         </ThemeProvider>
       </body>
     </html>
   );
 }
+

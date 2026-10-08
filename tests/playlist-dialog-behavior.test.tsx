@@ -7,6 +7,15 @@ import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/app/actions", () => ({ savePlaylistAction: vi.fn() }));
+vi.mock("@/lib/journal-cache", () => ({
+  getPlaylistForOwner: vi.fn(),
+  getPlaylistEntries: vi.fn(),
+  listEntryChoices: vi.fn(),
+}));
+vi.mock("@/lib/session", () => ({
+  requireOwner: async () => ({ user: { id: "owner" } }),
+}));
+vi.mock("next/link", () => ({ default: "a" }));
 vi.mock("next/navigation", () => {
   const push = vi.fn();
   const refresh = vi.fn();
@@ -14,6 +23,13 @@ vi.mock("next/navigation", () => {
 });
 
 import { PlaylistDialog } from "@/components/journal/playlist-dialog";
+import PlaylistPage from "@/app/playlists/[playlistId]/page";
+import {
+  getPlaylistForOwner,
+  getPlaylistEntries,
+  listEntryChoices,
+} from "@/lib/journal-cache";
+import { savePlaylistAction } from "@/app/actions";
 
 const entries = [
   { id: "entry-a", title: "Alpha", topic: "React", youtubeId: "aaa" },
@@ -82,5 +98,58 @@ describe("playlist editor ordering controls", () => {
     );
     expect(document.querySelector("ol")!.textContent).not.toContain("Alpha");
     expect(document.querySelector("ol")!.textContent).toContain("Beta");
+  });
+
+  it("opens the playlist page's editor with saved description and order and saves changes", async () => {
+    vi.mocked(getPlaylistForOwner).mockResolvedValue({
+      id: "playlist",
+      ownerId: "owner",
+      name: "Learning",
+      description: "Original",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    vi.mocked(getPlaylistEntries).mockResolvedValue([entries[1], entries[0]]);
+    vi.mocked(listEntryChoices).mockResolvedValue(entries);
+    vi.mocked(savePlaylistAction).mockResolvedValue({
+      ok: true,
+      id: "playlist",
+    });
+    const page = await PlaylistPage({
+      params: Promise.resolve({ playlistId: "playlist" }),
+    });
+    expect(listEntryChoices).toHaveBeenCalledWith("owner");
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    act(() => root.render(page));
+    toggle("Edit playlist");
+    const description = document.querySelector<HTMLTextAreaElement>(
+      "#playlist-description"
+    )!;
+    expect(description.value).toBe("Original");
+    expect(document.querySelector("ol li:first-child")!.textContent).toContain(
+      "Beta"
+    );
+    act(() => {
+      Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value"
+      )!.set!.call(description, "Updated");
+      description.dispatchEvent(new Event("input", { bubbles: true }));
+      document
+        .querySelector<HTMLButtonElement>(
+          'button[aria-label="Move Beta down"]'
+        )!
+        .click();
+    });
+    await act(async () => findButton("Save playlist")!.click());
+    expect(savePlaylistAction).toHaveBeenCalledWith("playlist", {
+      name: "Learning",
+      description: "Updated",
+      entryIds: ["entry-a", "entry-b"],
+    });
+    act(() => root.unmount());
+    container.remove();
   });
 });

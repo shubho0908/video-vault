@@ -34,7 +34,7 @@ const doc: LegalDoc = {
           Google — you agree to be bound by these terms and our{" "}
           <a
             href="/privacy"
-            className="text-primary underline decoration-primary/40 underline-offset-[0.18em]"
+            className="pg-a"
           >
             Privacy Policy
           </a>
@@ -188,9 +188,7 @@ const doc: LegalDoc = {
 
 export default function TermsPage() {
   return (
-    <LegalDocument
-      doc={doc}
-      other={{ href: "/privacy", label: "Privacy Policy" }}
-    />
+    <LegalDocument doc={doc} />
   );
 }
+

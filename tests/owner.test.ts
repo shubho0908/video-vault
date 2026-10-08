@@ -15,3 +15,4 @@ describe("single-owner access", () => {
     expect(isOwnerEmail("other@example.com", "owner@example.com")).toBe(false);
   });
 });
+

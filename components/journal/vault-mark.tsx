@@ -21,3 +21,4 @@ export function VaultMark({ className }: { className?: string }) {
     </span>
   );
 }
+

@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Search } from "lucide-react";
+import { Check, Copy, Search } from "lucide-react";
+
+import { evalExpr, formatNum } from "./calc-expr";
+import { FinderFace } from "./icons";
 
 import { thumb, type LibraryData } from "./library";
 import { APPS, ORDER, type AppId } from "./windows";
@@ -38,16 +41,17 @@ export function useConnection() {
 
 export const BatteryGlyph = ({ level = 1, charging }: { level?: number; charging?: boolean }) => (
   <svg width="27" height="13" viewBox="0 0 26 13" aria-hidden>
-    <rect x=".5" y=".5" width="22" height="12" rx="3.500" fill="none" stroke="currentColor" opacity=".45" />
+    <rect x=".5" y=".5" width="22" height="12" rx="3.500" fill="none" stroke="currentColor" strokeWidth=".9" opacity=".5" />
     <rect x="2" y="2" width={Math.max(level * 19, 2)} height="9" rx="2" fill={level <= 0.2 && !charging ? "#ff3b30" : "currentColor"} />
     <path d="M24 4.500v4c.9-.3 1.500-1.200 1.500-2s-.6-1.700-1.500-2Z" fill="currentColor" opacity=".5" />
   </svg>
 );
 export const WifiGlyph = ({ off }: { off?: boolean }) => (
-  <svg width="17" height="13" viewBox="0 0 17 13" fill="currentColor" aria-hidden opacity={off ? 0.4 : 1}>
-    <path d="M8.500 2.600c2.300 0 4.400.9 5.900 2.400l1-1A10.400 10.400 0 0 0 8.500 1.200 10.400 10.400 0 0 0 1.100 4l1 1a8.400 8.400 0 0 1 6.400-2.400Z" />
-    <path d="M8.500 5.600c1.500 0 2.900.6 3.900 1.600l1-1a7.100 7.100 0 0 0-9.800 0l1 1c1-1 2.400-1.600 3.900-1.600Z" />
-    <path d="M8.500 8.500c.8 0 1.500.3 2 .8L8.500 11.500 6.500 9.300c.5-.5 1.200-.8 2-.8Z" />
+  <svg width="18" height="13" viewBox="0 0 18 13" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" aria-hidden opacity={off ? 0.4 : 1}>
+    <path d="M2.600 4.100a9.100 9.100 0 0 1 12.800 0" />
+    <path d="M5 6.700a5.700 5.700 0 0 1 8 0" />
+    <path d="M7.300 9.200a2.500 2.500 0 0 1 3.400 0" />
+    <circle cx="9" cy="11.300" r=".9" fill="currentColor" stroke="none" />
   </svg>
 );
 export const ControlGlyph = () => (
@@ -173,7 +177,7 @@ export function DatePanel({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function Spotlight({ data, close, openApp, openEntry, openFolder }: { data: LibraryData; close: () => void; openApp: (id: AppId) => void; openEntry: (id: string) => void; openFolder: (id: string) => void }) {
+export function Spotlight({ data, close, openApp, openEntry, openFolder, searchFinder }: { data: LibraryData; close: () => void; openApp: (id: AppId) => void; openEntry: (id: string) => void; openFolder: (id: string) => void; searchFinder?: (q: string) => void }) {
   const [q, setQ] = useState("");
   const [i, setI] = useState(0);
   const ref = useRef<HTMLInputElement>(null);
@@ -187,6 +191,13 @@ export function Spotlight({ data, close, openApp, openEntry, openFolder }: { dat
       ...data.entries.filter(e => e.title.toLowerCase().includes(t) || e.topic.toLowerCase().includes(t)).slice(0, 8).map(e => ({ key: e.id, label: e.title, kind: e.topic, icon: <img src={thumb(e.youtubeId)} alt="" width={26} height={16} style={{ borderRadius: 2 }} />, run: () => openEntry(e.id) })),
     ];
   }, [q, data, openApp, openEntry, openFolder]);
+  const calc = useMemo(() => { const v = evalExpr(q); return v === null ? null : formatNum(v); }, [q]);
+  const [copied, setCopied] = useState(false);
+  const all = useMemo(() => {
+    const t = q.trim();
+    if (!t || !searchFinder) return results;
+    return [...results, { key: "__finder", label: "Search in Finder", kind: "", icon: <FinderFace size={26} />, run: () => searchFinder(t) }];
+  }, [results, q, searchFinder]);
   return (
     <div className="fx-spot-back" onPointerDown={close}>
       <div className="fx-spot fx-glass" onPointerDown={e => e.stopPropagation()}>
@@ -200,15 +211,21 @@ export function Spotlight({ data, close, openApp, openEntry, openFolder }: { dat
             onKeyDown={e => {
               e.stopPropagation();
               if (e.key === "Escape") close();
-              if (e.key === "ArrowDown") (e.preventDefault(), setI(Math.min(i + 1, results.length - 1)));
+              if (e.key === "ArrowDown") (e.preventDefault(), setI(Math.min(i + 1, all.length - 1)));
               if (e.key === "ArrowUp") (e.preventDefault(), setI(Math.max(i - 1, 0)));
-              if (e.key === "Enter" && results[i]) (close(), results[i].run());
+              if (e.key === "Enter" && all[i]) (close(), all[i].run());
             }}
           />
         </div>
-        {results.length > 0 && (
+        {calc !== null && (
+          <div className="fx-spot-calc">
+            <div className="fx-spot-calc-t"><small>{q.trim()} =</small><b>{calc}</b></div>
+            <button aria-label="Copy result" className="fx-spot-copy" onClick={() => { navigator.clipboard?.writeText(calc).then(() => (setCopied(true), setTimeout(() => setCopied(false), 1200)), () => undefined); }}>{copied ? <Check size={16} /> : <Copy size={16} />}</button>
+          </div>
+        )}
+        {all.length > 0 && (
           <div className="fx-spot-list">
-            {results.map((r, n) => (
+            {all.map((r, n) => (
               <button key={r.key} aria-selected={n === i} onPointerEnter={() => setI(n)} onClick={() => (close(), r.run())}>
                 {r.icon}<span>{r.label}</span><small>{r.kind}</small>
               </button>

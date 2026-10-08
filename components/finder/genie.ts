@@ -8,10 +8,13 @@
  * become overflow:hidden. Otherwise each of those is its own compositor layer and is
  * rasterised separately inside every clipped, warped band, which doubles lines at the seams.
  */
-const N = 36;
-const STEPS = 36;
+import { getYouTubeThumbnail } from "@/lib/youtube";
+
+const N = 24;
+const STEPS = 30;
+const CHUNK = 4;
 const LAG = 0.55;
-const OVERLAP = 1;
+const OVERLAP = 3;
 
 const ease = (x: number) => x * x * (3 - 2 * x);
 const clamp01 = (x: number) => Math.min(Math.max(x, 0), 1);
@@ -87,22 +90,48 @@ function flatTemplate(el: HTMLElement, w: number, h: number): HTMLElement {
       return;
     }
     if (/(auto|scroll)/.test(cs.overflowY + cs.overflowX)) c.style.overflow = "hidden";
+    // Static snapshot: 36 copies of every blur, shadow, animation and embedded frame would be recomputed per frame.
+    const st = c.style as CSSStyleDeclaration & { webkitBackdropFilter?: string };
+    if (cs.backdropFilter && cs.backdropFilter !== "none") { st.backdropFilter = "none"; st.webkitBackdropFilter = "none"; }
+    if (cs.filter && cs.filter !== "none") st.filter = "none";
+    st.animation = "none"; st.transition = "none"; st.willChange = "auto";
+    if (o instanceof HTMLIFrameElement) {
+      // An iframe cannot be cloned with its picture. Use the video thumbnail so the genie shows the video area, not a black box.
+      const id = /\/embed\/([\w-]{6,})/.exec(o.src)?.[1];
+      if (id) {
+        const img = document.createElement("img");
+        img.src = getYouTubeThumbnail(id);
+        img.alt = "";
+        img.dataset.genieThumb = "1";
+        img.className = c.className;
+        img.setAttribute("style", c.getAttribute("style") || "");
+        Object.assign(img.style, { width: cs.width, height: cs.height, objectFit: "cover", display: "block", visibility: "visible" });
+        c.replaceWith(img);
+        return;
+      }
+      st.visibility = "hidden";
+    } else if (o instanceof HTMLVideoElement) st.visibility = "hidden";
   });
   Object.assign(tpl.style, { position: "absolute", left: "0", width: `${w}px`, height: `${h}px`, translate: "none", transform: "none", opacity: "1", visibility: "visible", margin: "0", zIndex: "auto" });
   return tpl;
 }
 
-export function genie(el: HTMLElement, slot: DOMRect, dir: "in" | "out", duration: number): Promise<void> {
+export async function genie(el: HTMLElement, slot: DOMRect, dir: "in" | "out", duration: number): Promise<void> {
   const r = el.getBoundingClientRect();
   const host = el.parentElement;
-  if (!host || !r.width || !r.height) return Promise.resolve();
+  if (!host || !r.width || !r.height) return;
   const overlay = document.createElement("div");
   overlay.setAttribute("aria-hidden", "true");
   overlay.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:35;";
   const tpl = flatTemplate(el, r.width, r.height);
+  // let the thumbnail decode (briefly) so the first frame shows it, not the black player background
+  const pics = Array.from(tpl.querySelectorAll<HTMLImageElement>("img[data-genie-thumb]"));
+  if (pics.length) await Promise.race([Promise.all(pics.map(p => p.decode().catch(() => undefined))), new Promise(res => setTimeout(res, 150))]);
   const sh = r.height / N;
   const cxr = r.left + r.width / 2, cxs = slot.left + slot.width / 2;
   const anims: Animation[] = [];
+  const bands: HTMLElement[] = [];
+  // build the band clones a few per frame so no single frame blocks on 24 deep clones
   for (let i = 0; i < N; i++) {
     const bandH = sh + OVERLAP;
     const band$ = document.createElement("div");
@@ -111,7 +140,15 @@ export function genie(el: HTMLElement, slot: DOMRect, dir: "in" | "out", duratio
     clone.style.top = `${-i * sh}px`;
     band$.appendChild(clone);
     overlay.appendChild(band$);
-
+    bands.push(band$);
+    if ((i + 1) % CHUNK === 0 && i < N - 1) await new Promise<void>(res => requestAnimationFrame(() => res()));
+  }
+  const prev = el.style.visibility;
+  host.appendChild(overlay);
+  el.style.visibility = "hidden";
+  for (let i = 0; i < N; i++) {
+    const bandH = sh + OVERLAP;
+    const band$ = bands[i];
     const u0 = i / N, u1 = (i + 1) / N + OVERLAP / r.height;
     const frames: Keyframe[] = [];
     for (let k = 0; k <= STEPS; k++) {
@@ -133,10 +170,7 @@ export function genie(el: HTMLElement, slot: DOMRect, dir: "in" | "out", duratio
     }
     anims.push(band$.animate(frames, { duration, easing: "linear", fill: "both" }));
   }
-  const prev = el.style.visibility;
-  host.appendChild(overlay);
-  el.style.visibility = "hidden";
-  return Promise.all(anims.map(a => a.finished.then(() => undefined, () => undefined))).then(() => {
+  await Promise.all(anims.map(a => a.finished.then(() => undefined, () => undefined))).then(() => {
     overlay.remove();
     if (dir === "out") el.style.visibility = prev;
   });

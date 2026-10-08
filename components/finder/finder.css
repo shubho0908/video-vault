@@ -356,10 +356,9 @@
 .fx-ios-status { z-index: 41; }
 .fx-ios-indicator { touch-action: none; }
 .fx-ios-icon .gl { box-shadow: 0 3px 10px rgba(0,0,0,.22); }
-.fx-ios-srow .fx-switch, .fx-ios-applayer .fx-switch { width: 51px; height: 31px; border-radius: 16px; background: rgba(120,120,128,.32); position: relative; transition: background .25s; flex: none; padding: 0; }
-.fx-ios-srow .fx-switch i { position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 3px 8px rgba(0,0,0,.15), 0 1px 1px rgba(0,0,0,.16); transition: transform .3s cubic-bezier(.32,.72,0,1); }
-.fx-ios-srow .fx-switch[aria-checked="true"] { background: #34c759; } .fx-ios-srow .fx-switch[aria-checked="true"] i { transform: translateX(20px); }
-.fx-ios-srow .fx-switch[aria-checked="true"] i { translate: none; }
+.fx-ios-srow .fx-switch, .fx-ios-applayer .fx-switch { width: 51px; height: 31px; border-radius: 16px; background: rgba(120,120,128,.32); position: relative; flex: none; padding: 0; }
+.fx-ios-srow .fx-switch i { position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 3px 8px rgba(0,0,0,.15), 0 1px 1px rgba(0,0,0,.16); transition: translate .3s cubic-bezier(.32,.72,0,1); }
+.fx-ios-srow .fx-switch[aria-checked="true"] { background: #34c759; } .fx-ios-srow .fx-switch[aria-checked="true"] i { translate: 20px 0; }
 /* CC pass 2 (vs 9to5mac/Verge refs): thinner tracks, lighter blue-tinted glass, brighter rim */
 .fx-cc-pop .fx-g { background: rgba(48,92,190,.42); box-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 0 0 1px rgba(255,255,255,.28), 0 8px 24px rgba(10,30,90,.25); -webkit-backdrop-filter: blur(28px) saturate(200%); backdrop-filter: blur(28px) saturate(200%); }
 .dark .fx-cc-pop .fx-g { background: rgba(28,44,110,.5); }
@@ -708,3 +707,144 @@
 .fx-window.fx-zooming { transition: left .42s cubic-bezier(.32,.72,0,1), top .42s cubic-bezier(.32,.72,0,1), width .42s cubic-bezier(.32,.72,0,1), height .42s cubic-bezier(.32,.72,0,1), translate .42s cubic-bezier(.32,.72,0,1); }
 .fx-genie-clone { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; animation: none !important; box-shadow: none !important; }
 .fx-ew-win.fx-zooming-on { transition: left .42s cubic-bezier(.32,.72,0,1), top .42s cubic-bezier(.32,.72,0,1), width .42s cubic-bezier(.32,.72,0,1), height .42s cubic-bezier(.32,.72,0,1), translate .42s cubic-bezier(.32,.72,0,1); }
+
+/* iPad dock (>=700px): hugs its icons like iPadOS 26. Measured on Apple's iPadOS 26 Home Screen image (980x700 newsroom render): icon 41px, gap 11, side padding 10, height 62, i.e. gap 0.27 / padding 0.25 / height 1.5 of the icon, corner radius about 0.35 of the height. Scaled to our 72px icon. */
+@media (min-width: 700px) {
+  .fx-ios-dock { --ic: 72px; display: flex; grid-template-columns: none; justify-content: center; align-items: center; left: 50%; right: auto; width: fit-content; transform: translateX(-50%); gap: calc(var(--ic) * .27); padding: calc(var(--ic) * .25); height: auto; border-radius: calc(var(--ic) * 1.5 * .35); }
+  .fx-ios-dock .fx-ios-icon { width: var(--ic); }
+}
+/* responsive toolbar: .fx-main is a size container, the title truncates, controls never wrap */
+.fx-main { container-type: inline-size; container-name: fxmain; }
+.fx-toolbar > * { flex: none; white-space: nowrap; }
+.fx-toolbar > .fx-title { flex: 0 1 auto; min-width: 0; overflow: hidden; }
+.fx-title span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fx-title svg { flex: none; }
+.fx-tb-sp { flex: 1 1 0; min-width: 0; }
+.fx-toolbar > .fx-search-w { flex: 0 1 auto; min-width: 0; }
+.fx-plus { display: none; font-size: 20px; line-height: 1; font-weight: 400; }
+@container fxmain (max-width: 560px) { .fx-search { width: 104px; } .fx-toolbar { gap: 8px; padding: 0 10px; } }
+@container fxmain (max-width: 470px) {
+  .fx-lbl { display: none; } .fx-plus { display: inline; }
+  .fx-search { width: 32px; padding: 0; color: transparent; } .fx-search::placeholder { color: transparent; }
+  .fx-search:focus { width: 120px; padding: 0 10px 0 30px; color: inherit; position: absolute; right: 0; top: 0; }
+}
+@container fxmain (max-width: 340px) { .fx-seg button { width: 28px; } }
+
+/* control center: one backdrop layer on the popover, tiles carry no backdrop-filter of their own (avoids per-frame multi-layer resampling flicker) */
+.fx-portal > div.fx-cc-pop { -webkit-backdrop-filter: blur(28px) saturate(170%) brightness(.96); backdrop-filter: blur(28px) saturate(170%) brightness(.96); border-radius: 36px; padding: 0; contain: paint; }
+.fx-cc-pop .fx-g { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; transition: none; }
+.fx-cc-dot, .fx-cc-ic, .fx-cc-circ { transition: none; }
+.fx-dock button:hover { transform: none; }
+@container fxmain (max-width: 400px) { .fx-toolbar > .fx-search-w { display: none; } }
+@container fxmain (max-width: 360px) { .fx-toolbar > .fx-pill[aria-label="New Folder"] { display: none; } }
+@container fxmain (max-width: 320px) { .fx-navpill .fx-nav-div, .fx-navpill .fx-nav[aria-label="Forward"] { display: none; } .fx-navpill { width: 36px !important; } }
+@container fxmain (max-width: 200px) { .fx-toolbar > .fx-title { display: none; } }
+.fx-tb-sp { flex: 0 0 0; } .fx-toolbar > .fx-seg { margin-left: auto; }
+.fx-toolbar > .fx-title { flex: 0 1 auto; }
+
+/* joined back/forward pill, measured from a real macOS Finder (72x36pt, 1px divider ~21pt, chevrons ~1.5pt stroke, dimmed when disabled) */
+.fx-navpill { display: inline-flex; align-items: center; height: 36px; width: 72px; border-radius: 18px; padding: 0; overflow: hidden; }
+.fx-navpill .fx-nav { flex: 1 1 0; height: 100%; display: grid; place-items: center; background: none; color: var(--fx-label); }
+.fx-navpill .fx-nav svg path { stroke-width: 1.6; }
+.fx-navpill .fx-nav:disabled { opacity: .38; }
+.fx-navpill .fx-nav:not(:disabled):active { background: color-mix(in srgb, var(--fx-label) 10%, transparent); }
+.fx-nav-div { width: 1px; height: 21px; flex: none; background: color-mix(in srgb, var(--fx-label) 22%, transparent); }
+.fx-navpill + .fx-title { margin-left: 3px; }
+/* minimized tiles: same height as icons, bottom aligned, badge bottom-right, softer corners */
+.fx-dock-thumb { border-radius: 7px; box-shadow: 0 0 0 .5px rgba(0,0,0,.35), 0 1px 4px rgba(0,0,0,.3); }
+.fx-dock-item[data-min] { align-self: flex-end; }
+
+/* dialogs: always centred on the full viewport, never inside a window or toolbar area */
+.fx-sheet-back, .fx-ew-alert, .fx-ew-sheet .fx-ew-alert { position: fixed; inset: 0; display: grid; place-items: center; padding: 0; }
+.fx-sheet-back { z-index: 180; } .fx-ew-alert { z-index: 190; }
+
+/* blur audit: realistic macOS/iOS 26 values, one definition per surface, redundant layers removed */
+.fx-window, .fx-ew-sheet { -webkit-backdrop-filter: blur(18px) saturate(140%) !important; backdrop-filter: blur(18px) saturate(140%) !important; }
+.fx-menu, .fx-portal .fx-menu, .fx-extra { -webkit-backdrop-filter: blur(22px) saturate(150%) !important; backdrop-filter: blur(22px) saturate(150%) !important; }
+.fx-g, .fx-pill, .fx-seg, .fx-search, .fx-dock { -webkit-backdrop-filter: blur(12px) saturate(140%) !important; backdrop-filter: blur(12px) saturate(140%) !important; }
+.fx-portal > div.fx-cc-pop { -webkit-backdrop-filter: blur(20px) saturate(150%) brightness(.96) !important; backdrop-filter: blur(20px) saturate(150%) brightness(.96) !important; }
+.fx-cc-pop .fx-g { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+.fx-ql > div, .fx-keys { -webkit-backdrop-filter: blur(24px) saturate(150%) !important; backdrop-filter: blur(24px) saturate(150%) !important; }
+.fx-keys-back, .fx-keys-back[data-held="true"] { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+.fx-ios-dock, .fx-ios-wg, .fx-ew-bar, .wl-btn { -webkit-backdrop-filter: blur(14px) saturate(140%) !important; backdrop-filter: blur(14px) saturate(140%) !important; }
+
+/* Spotlight: concentric geometry. Outer radius 26, list inset 8 on every side, so row radius = 26 - 8 = 18. */
+.fx-spot-back { position: fixed; z-index: 180; }
+.fx-spot { width: 620px; max-width: calc(100vw - 24px); border-radius: 26px; }
+.fx-spot-in { height: 60px; padding: 0 20px; }
+.fx-spot-list { padding: 8px; border-top: 1px solid var(--fx-sep); display: grid; gap: 0; }
+.fx-spot-list button { height: 44px; padding: 0 12px; border-radius: 18px; }
+.fx-spot-calc { margin: 0 8px 8px; padding: 10px 16px; border-radius: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: color-mix(in srgb, var(--fx-label) 8%, transparent); }
+.fx-spot-calc-t { display: grid; gap: 2px; min-width: 0; } .fx-spot-calc-t small { font-size: 12px; color: var(--fx-label-2); } .fx-spot-calc-t b { font-size: 22px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fx-spot-copy { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--fx-label) 12%, transparent); flex: none; }
+
+/* System Settings layout (macOS structure): search, profile, tinted icon rows, header, grouped rows */
+.fx-set-side { gap: 10px; padding-top: 52px; }
+.fx-set-search { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 15px; background: color-mix(in srgb, var(--fx-label) 7%, transparent); color: var(--fx-label-2); }
+.fx-set-search input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; font-size: 13px; color: var(--fx-label); }
+.fx-set-profile { display: flex; align-items: center; gap: 10px; padding: 6px 8px; }
+.fx-set-profile > span:last-child { display: grid; min-width: 0; } .fx-set-profile b { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .fx-set-profile small { font-size: 11px; color: var(--fx-label-2); }
+.fx-set-list { display: grid; gap: 2px; }
+.fx-set-list .fx-side-row { height: 34px; width: 100%; gap: 10px; padding: 0 8px; border-radius: 10px; font-size: 13px; }
+.fx-set-list .fx-side-row[aria-current="true"] { background: var(--fx-accent); color: #fff; }
+.fx-set-ic { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; color: #fff; flex: none; }
+.fx-set-main { padding: 52px 0 0; }
+.fx-set-scroll { flex: 1; min-height: 0; overflow: auto; padding: 8px 20px 24px; container-type: inline-size; }
+.fx-set-head { display: grid; justify-items: center; text-align: center; gap: 4px; padding: 12px 8px 18px; }
+.fx-set-big { width: 64px; height: 64px; border-radius: 15px; display: grid; place-items: center; color: #fff; margin-bottom: 6px; }
+.fx-set-head h2 { margin: 0; font-size: 20px; font-weight: 700; } .fx-set-head p { margin: 0; max-width: 360px; font-size: 12.5px; color: var(--fx-label-2); }
+.fx-set-group { border-radius: 14px; background: color-mix(in srgb, var(--fx-label) 5%, transparent); overflow: hidden; }
+.fx-set-grow { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 8px 14px; font-size: 13px; }
+.fx-set-grow + .fx-set-grow { border-top: .5px solid var(--fx-sep); }
+.fx-set-val { color: var(--fx-label-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fx-set-pick { justify-content: flex-start; gap: 18px; padding: 14px; }
+.fx-set-cap { font-size: 11px; font-weight: 600; color: var(--fx-label-2); padding: 16px 14px 6px; }
+@media (max-width: 760px) { .fx-set-side { width: 180px; } }
+/* menu bar: every item is centred on the same midline; battery % uses exactly the date text size and weight */
+.fx-menubar .fx-mb-item { align-items: center; line-height: 1; }
+.fx-menubar .fx-mb-item svg { display: block; flex: none; }
+.fx-mb-pct { font-size: 12px; font-weight: 400; line-height: 1; margin-right: 4px; position: relative; top: .5px; }
+
+/* Settings polish: real-macOS proportions */
+.fx-set-ic { width: 22px; height: 22px; border-radius: 6px; box-shadow: inset 0 .5px 0 rgba(255,255,255,.35), 0 .5px 1px rgba(0,0,0,.25); }
+.fx-set-big { width: 58px; height: 58px; border-radius: 14px; box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 1px 3px rgba(0,0,0,.3); }
+.fx-set-list .fx-side-row[aria-current="true"] { background: #0a60d6; color: #fff; }
+.fx-set-list .fx-side-row { height: 35px; border-radius: 8px; }
+.fx-set-search { height: 28px; border-radius: 14px; }
+.fx-set-profile { padding: 6px 8px 10px; } .fx-set-profile .fx-avatar { width: 40px; height: 40px; }
+.fx-set-head h2 { font-size: 22px; } .fx-set-head p { max-width: 340px; font-size: 12px; line-height: 1.35; }
+.fx-set-group { border-radius: 10px; }
+.fx-set-grow { position: relative; } .fx-set-grow + .fx-set-grow { border-top: 0; }
+.fx-set-grow + .fx-set-grow::before { content: ""; position: absolute; left: 14px; right: 0; top: 0; height: .5px; background: var(--fx-sep); }
+.fx-set-link { width: 100%; text-align: left; }
+.fx-set-chev { color: var(--fx-label-2); display: grid; place-items: center; }
+.fx-set-back { display: none; gap: 2px; padding: 0 12px 0 8px; height: 32px; }
+.fx-window:has(.fx-set-side) { container-type: inline-size; container-name: fxwin; }
+@container fxwin (max-width: 560px) {
+  .fx-set-side { width: auto !important; flex: 1; margin-right: 8px; }
+  .fx-set-side[data-view="detail"] { display: none; }
+  .fx-set-main[data-view="list"] { display: none; }
+  .fx-set-back { display: inline-flex; } .fx-set-main .fx-navpill { display: none; }
+  .fx-set-head { padding-top: 4px; } .fx-set-big { width: 48px; height: 48px; }
+}
+/* Settings fixes: glyphs always white, link rows centred, divider inset both sides, back pill clear of traffic lights */
+.fx-set-ic svg, .fx-set-big svg { color: #fff; display: block; }
+.fx-set-grow + .fx-set-grow::before { right: 14px; }
+.fx-set-link { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding-top: 0; padding-bottom: 0; line-height: 1.2; }
+.fx-set-link > span { display: block; } .fx-set-chev svg { display: block; }
+@container fxwin (max-width: 560px) { .fx-set-main .fx-toolbar { padding-left: 86px; } }
+
+/* Notes: the list column gives way to the editor as the window narrows */
+.fx-window:has(.fx-notes-list) { container-type: inline-size; container-name: fxnotes; }
+@container fxnotes (max-width: 640px) { .fx-notes-list { width: 200px; } .fx-notes-ta { padding-left: 24px; padding-right: 24px; } }
+@container fxnotes (max-width: 540px) { .fx-notes-list { width: 168px; } .fx-notes-h { padding: 0 12px 8px; } .fx-notes-row { padding: 8px; } }
+@container fxnotes (max-width: 640px) { .fx-sidebar { display: none; } }
+/* focus ring follows the card's own rounded corners so it never pokes outside them */
+.fx-ew-row:focus-within { border-radius: 0; }
+.fx-ew-group > .fx-ew-row:first-child:focus-within { border-radius: 12px 12px 0 0; }
+.fx-ew-group > .fx-ew-row:last-child:focus-within { border-radius: 0 0 12px 12px; }
+.fx-ew-group > .fx-ew-row:only-child:focus-within { border-radius: 12px; }
+/* long unbroken words, code blocks and tables never widen the entry window */
+.fx-ew-notes .markdown-body, .fx-ew-main { min-width: 0; overflow-wrap: anywhere; }
+.fx-ew-notes .markdown-body pre, .fx-ew-notes .markdown-body table { max-width: 100%; overflow-x: auto; display: block; }
+.fx-ew-notes .markdown-body img, .fx-ew-notes .markdown-body video { max-width: 100%; height: auto; }

@@ -3,6 +3,7 @@
 import "./finder.css";
 import { useEntryWindow } from "./entry-window";
 import { ResizeHandles, ZOOM_STYLE, clampDrag } from "./window-geom";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as RPointerEvent } from "react";
 import { CalendarDays, LoaderCircle, Pencil, Trash2, Video } from "lucide-react";
@@ -314,7 +315,8 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
     </div>
   );
 
-  const alertEl = alert ? (
+  const alertEl = alert && typeof document !== "undefined" ? createPortal(
+    <div className="fx fx-portal">
     <div className="fx-sheet-back fx-ew-alert" onPointerDown={e => e.stopPropagation()}>
       <div className="fx-sheet fx-glass" role="alertdialog" aria-label={alert === "delete" ? "Delete this entry?" : "Discard changes?"}>
         <h3>{alert === "delete" ? "Delete this entry?" : "Discard changes?"}</h3>
@@ -325,6 +327,7 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
         </div>
       </div>
     </div>
+    </div>, document.body
   ) : null;
 
   const wall = standalone ? <div className="fx-ew-wall" /> : null;

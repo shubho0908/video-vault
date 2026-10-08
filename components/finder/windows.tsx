@@ -5,7 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { EntrySlot } from "./dock-entry";
 import { genie } from "./genie";
 import { ResizeHandles, ZOOM_STYLE, clampDrag, type Geom } from "./window-geom";
-import { CalculatorIcon, FinderFace, NotesIcon, SettingsIcon, TrashIcon } from "./icons";
+import { CalculatorIcon, FinderFace, NotesIcon, SettingsIcon } from "./icons";
 
 export type AppId = "finder" | "notes" | "calculator" | "settings";
 
@@ -209,11 +209,32 @@ export function AppWindow({ id, wm, className, children }: { id: AppId; wm: WM; 
 }
 
 const BASE = 54;
-const MAX = 1.8;
-const REACH = 130;
+const MAX = 1.55;
+const REACH = 105;
 
 export function Dock({ wm }: { wm: WM }) {
-  const [mx, setMx] = useState<number | null>(null);
+  // mx: smoothed cursor x, k: magnification strength (0..1). Both ease toward their targets each frame so nothing jumps.
+  const [mag, setMag] = useState<{ x: number; k: number } | null>(null);
+  const tgt = useRef<{ x: number; on: boolean }>({ x: 0, on: false });
+  const cur = useRef({ x: 0, k: 0, v: 0, t: 0 });
+  const raf = useRef(0);
+  const tick = (now: number) => {
+    const c = cur.current, g = tgt.current;
+    const dt = Math.min(0.05, c.t ? (now - c.t) / 1000 : 0.016); c.t = now;
+    const a = 1 - Math.exp(-dt * 14);
+    c.x += (g.x - c.x) * (1 - Math.exp(-dt * 22));
+    c.k += ((g.on ? 1 : 0) - c.k) * a;
+    const done = !g.on && c.k < 0.003;
+    if (done) { c.k = 0; c.t = 0; raf.current = 0; setMag(null); return; }
+    setMag({ x: c.x, k: c.k });
+    raf.current = requestAnimationFrame(tick);
+  };
+  const aim = (x: number, on: boolean) => {
+    if (on && !tgt.current.on && cur.current.k < 0.003) cur.current.x = x;
+    tgt.current = { x, on };
+    if (!raf.current) raf.current = requestAnimationFrame(tick);
+  };
+  useEffect(() => () => cancelAnimationFrame(raf.current), []);
   const [hover, setHover] = useState<string | null>(null);
   const centers = useRef<number[]>([]);
   const row = useRef<HTMLDivElement>(null);
@@ -226,9 +247,9 @@ export function Dock({ wm }: { wm: WM }) {
     });
   };
   const scale = (i: number) => {
-    if (mx === null || centers.current[i] === undefined) return 1;
-    const t = Math.min(Math.abs(mx - centers.current[i]) / REACH, 1);
-    return 1 + (MAX - 1) * ((1 + Math.cos(Math.PI * t)) / 2);
+    if (!mag || centers.current[i] === undefined) return 1;
+    const t = Math.min(Math.abs(mag.x - centers.current[i]) / REACH, 1);
+    return 1 + (MAX - 1) * mag.k * ((1 + Math.cos(Math.PI * t)) / 2);
   };
 
   let idx = 0;
@@ -240,7 +261,7 @@ export function Dock({ wm }: { wm: WM }) {
         key={key}
         data-di={i}
         className="fx-dock-item"
-        style={{ width: s, height: s, transition: mx === null ? "width .25s cubic-bezier(.2,.9,.3,1), height .25s cubic-bezier(.2,.9,.3,1)" : "none" }}
+        style={{ width: s, height: s, transition: "none" }}
         onPointerEnter={() => setHover(key)}
         onPointerLeave={() => setHover(h => (h === key ? null : h))}
       >
@@ -258,9 +279,9 @@ export function Dock({ wm }: { wm: WM }) {
     <div
       className="fx-dock fx-glass"
       ref={row}
-      onPointerEnter={e => (measure(), setMx(e.clientX))}
-      onPointerMove={e => setMx(e.clientX)}
-      onPointerLeave={() => (setMx(null), setHover(null))}
+      onPointerEnter={e => (measure(), aim(e.clientX, true))}
+      onPointerMove={e => aim(e.clientX, true)}
+      onPointerLeave={() => (aim(tgt.current.x, false), setHover(null))}
     >
       {ORDER.map(id =>
         item(id, APPS[id].name, s => APPS[id].icon(s), () => wm.launch(id), id === "finder" || wm.wins[id].open, wm.bounce === id)
@@ -279,24 +300,24 @@ function Slot({ id, wm }: { id: AppId; wm: WM }) {
   const app = APPS[id];
   const box = useRef<HTMLDivElement>(null);
   const thumb = wm.thumbs[id];
-  const h = Math.round((BASE * app.h) / app.w);
+  const tw = Math.round((BASE * app.w) / app.h);
   useEffect(() => {
     const el = box.current;
     if (!el || !thumb) return;
     thumb.removeAttribute("class");
     thumb.className = "fx-window";
-    Object.assign(thumb.style, { position: "absolute", left: "0", top: "0", width: `${app.w}px`, height: `${app.h}px`, translate: "none", transform: `scale(${BASE / app.w})`, transformOrigin: "0 0", visibility: "visible", opacity: "1", pointerEvents: "none", margin: "0", animation: "none" });
+    Object.assign(thumb.style, { position: "absolute", left: "0", top: "0", width: `${app.w}px`, height: `${app.h}px`, translate: "none", transform: `scale(${BASE / app.h})`, transformOrigin: "0 0", visibility: "visible", opacity: "1", pointerEvents: "none", margin: "0", animation: "none" });
     el.replaceChildren(thumb);
   }, [thumb, app.w, app.h]);
   return (
-    <div className="fx-dock-item" style={{ width: BASE, height: BASE + 6 }} data-min={id}>
+    <div className="fx-dock-item" style={{ width: tw, height: BASE }} data-min={id}>
       <div
         ref={el => {
           box.current = el;
           wm.slots.current[id] = el;
         }}
         className="fx-dock-thumb"
-        style={{ width: BASE, height: h, opacity: thumb ? 1 : 0 }}
+        style={{ width: tw, height: BASE, opacity: thumb ? 1 : 0 }}
       />
       <button aria-label={`Restore ${app.name}`} onClick={() => wm.restore(id)} className="fx-dock-thumb-hit">
         <span className="fx-dock-badge">{app.icon(22)}</span>

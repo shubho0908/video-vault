@@ -1,12 +1,11 @@
 "use client";
 
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { useTheme } from "next-themes";
 import { useState } from "react";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Search, Sun } from "lucide-react";
 
-import { SmallFolder } from "./icons";
+import { SFChevronLeft, SFChevronRight } from "./sf";
+
 import { WallPicker } from "./wall-picker";
 
 
@@ -46,46 +45,92 @@ export function CalculatorApp({ drag }: { drag: Drag }) {
   );
 }
 
+type Pane = "Appearance" | "General";
+const Glyph = ({ pane, size }: { pane: Pane; size: number }) => pane === "Appearance" ? (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+    <circle cx="12" cy="12" r="8.2" /><path d="M12 3.8a8.2 8.2 0 0 1 0 16.4Z" fill="currentColor" stroke="none" />
+  </svg>
+) : (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden>
+    <circle cx="12" cy="12" r="6.6" /><circle cx="12" cy="12" r="2.3" />
+    <path d="M12 2.6v3M12 18.4v3M2.6 12h3M18.4 12h3M5.4 5.4l2.1 2.1M16.5 16.5l2.1 2.1M18.6 5.4l-2.1 2.1M7.5 16.5l-2.1 2.1" />
+  </svg>
+);
+const PANES: { id: Pane; tint: string; blurb: string }[] = [
+  { id: "Appearance", tint: "linear-gradient(#3a3a3c,#0a0a0b)", blurb: "Choose how Video Vault looks, and pick a wallpaper for the desktop." },
+  { id: "General", tint: "linear-gradient(#a7a7ac,#7a7a80)", blurb: "Your account and basic details for this library." },
+];
+
 export function SettingsApp({ userName, drag, signOut }: { userName: string; drag: Drag; signOut: () => void }) {
   const { resolvedTheme, setTheme } = useTheme();
-  const [pane, setPane] = useState<"Appearance" | "General">("Appearance");
+  const [hist, setHist] = useState<{ stack: Pane[]; at: number }>({ stack: ["Appearance"], at: 0 });
+  const [view, setView] = useState<"list" | "detail">("detail");
+  const [scrolled, setScrolled] = useState(false);
+  const [q, setQ] = useState("");
+  const pane = hist.stack[hist.at];
+  const go = (p: Pane) => { setView("detail"); if (p !== pane) setHist(h => ({ stack: [...h.stack.slice(0, h.at + 1), p], at: h.at + 1 })); };
+  const meta = PANES.find(x => x.id === pane)!;
+  const shown = PANES.filter(x => x.id.toLowerCase().includes(q.trim().toLowerCase()));
   return (
     <>
-      <aside className="fx-sidebar" style={{ width: 210 }} onPointerDown={drag}>
-        <div>
-          <div className="fx-side-row" style={{ height: 52, gap: 10, marginTop: 6 }}>
-            <span className="fx-avatar">{userName.slice(0, 1)}</span>
-            <span style={{ fontWeight: 600 }}>{userName}</span>
-          </div>
+      <aside className="fx-sidebar fx-set-side" data-view={view} onPointerDown={drag}>
+        <label className="fx-set-search" data-nodrag><Search size={14} /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Search" aria-label="Search settings" /></label>
+        <div className="fx-set-profile">
+          <span className="fx-avatar">{userName.slice(0, 1)}</span>
+          <span><b>{userName}</b><small>Account</small></span>
         </div>
-        <div>
-          {(["Appearance", "General"] as const).map(p => (
-            <button key={p} className="fx-side-row" aria-current={pane === p} onClick={() => setPane(p)} style={{ width: "100%" }}>{p}</button>
+        <div className="fx-set-list">
+          {shown.map(x => (
+            <button key={x.id} className="fx-side-row" aria-current={pane === x.id} onClick={() => go(x.id)}>
+              <span className="fx-set-ic" style={{ background: x.tint }}><Glyph pane={x.id} size={14} /></span>{x.id}
+            </button>
           ))}
         </div>
       </aside>
-      <section className="fx-main" style={{ padding: "58px 28px 24px", overflow: "auto" }}>
-        <div className="fx-toolbar" onPointerDown={drag}><div className="fx-title">{pane}</div></div>
-        {pane === "Appearance" ? (
-          <div className="fx-set-card">
-            <div style={{ fontWeight: 600, marginBottom: 12 }}>Appearance</div>
-            <div style={{ display: "flex", gap: 18 }}>
-              {(["light", "dark"] as const).map(t => (
-                <button key={t} className="fx-tile-pick" aria-pressed={resolvedTheme === t} onClick={() => setTheme(t)}>
-                  <span className={`fx-tile-prev ${t}`}>{t === "light" ? <Sun size={18} /> : <Moon size={18} />}</span>
-                  <span>{t === "light" ? "Light" : "Dark"}</span>
-                </button>
-              ))}
-            </div>
-            <div style={{ fontWeight: 600, margin: "20px 0 12px" }}>Wallpaper</div>
-            <WallPicker kind="mac" />
+      <section className="fx-main fx-set-main" data-view={view}>
+        <div className="fx-toolbar" onPointerDown={drag}>
+          <button className="fx-set-back fx-pill fx-glass" data-nodrag onClick={() => setView("list")}><SFChevronLeft size={16} />Settings</button>
+          <div className="fx-navpill fx-glass" data-nodrag>
+            <button className="fx-nav" aria-label="Back" disabled={hist.at === 0} onClick={() => setHist(h => ({ ...h, at: h.at - 1 }))}><SFChevronLeft size={16} /></button>
+            <i className="fx-nav-div" aria-hidden />
+            <button className="fx-nav" aria-label="Forward" disabled={hist.at >= hist.stack.length - 1} onClick={() => setHist(h => ({ ...h, at: h.at + 1 }))}><SFChevronRight size={16} /></button>
           </div>
-        ) : (
-          <div className="fx-set-card">
-            <div className="fx-set-row"><span>Name</span><span style={{ color: "var(--fx-label-2)" }}>{userName}</span></div>
-            <div className="fx-set-row"><span>Account</span><button className="fx-btn" onClick={signOut}>Sign Out…</button></div>
-          </div>
-        )}
+          <div className="fx-title" style={{ opacity: scrolled ? 1 : 0, transition: "opacity .15s" }}><span>{pane}</span></div>
+        </div>
+        <div className="fx-set-scroll" onScroll={e => setScrolled(e.currentTarget.scrollTop > 56)}>
+          <header className="fx-set-head">
+            <span className="fx-set-big" style={{ background: meta.tint }}><Glyph pane={pane} size={34} /></span>
+            <h2>{pane}</h2>
+            <p>{meta.blurb}</p>
+          </header>
+          {pane === "Appearance" ? (
+            <>
+              <div className="fx-set-group">
+                <div className="fx-set-grow fx-set-pick">
+                  {(["light", "dark"] as const).map(t => (
+                    <button key={t} className="fx-tile-pick" aria-pressed={resolvedTheme === t} onClick={() => setTheme(t)}>
+                      <span className={`fx-tile-prev ${t}`}>{t === "light" ? <Sun size={18} /> : <Moon size={18} />}</span>
+                      <span>{t === "light" ? "Light" : "Dark"}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="fx-set-cap">Wallpaper</div>
+              <div className="fx-set-group"><div className="fx-set-grow"><WallPicker kind="mac" /></div></div>
+              <div className="fx-set-cap" />
+              <div className="fx-set-group"><button className="fx-set-grow fx-set-link" onClick={() => go("General")}><span>General</span><span className="fx-set-chev"><SFChevronRight size={13} /></span></button></div>
+            </>
+          ) : (
+            <>
+              <div className="fx-set-group">
+                <div className="fx-set-grow"><span>Name</span><span className="fx-set-val">{userName}</span></div>
+                <div className="fx-set-grow"><span>Account</span><button className="fx-btn" onClick={signOut}>Sign Out…</button></div>
+              </div>
+              <div className="fx-set-cap" />
+              <div className="fx-set-group"><button className="fx-set-grow fx-set-link" onClick={() => go("Appearance")}><span>Appearance</span><span className="fx-set-chev"><SFChevronRight size={13} /></span></button></div>
+            </>
+          )}
+        </div>
       </section>
     </>
   );

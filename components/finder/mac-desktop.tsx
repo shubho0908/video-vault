@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, LayoutGrid, List, Search, FolderPlus, Layers, Inbox } from "lucide-react";
+import { Layers, Inbox } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
 import { SFChevronLeft, SFChevronRight, SFGrid, SFList, SFFolderPlus, SFSearch } from "./sf";
@@ -302,7 +302,7 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
         </div>
         <div>
           <button className="fx-mb-item" data-open={panel === "battery"} aria-label="Battery" onClick={() => (setMenuBar(null), setPanel(panel === "battery" ? null : "battery"))}>
-            {battery ? <span style={{ marginRight: 5, fontSize: 12 }}>{Math.round(battery.level * 100)}%</span> : null}
+            {battery ? <span className="fx-mb-pct">{Math.round(battery.level * 100)}%</span> : null}
             <BatteryGlyph level={battery?.level ?? 1} charging={battery?.charging} />
           </button>
           <button className="fx-mb-item" data-open={panel === "wifi"} aria-label="Wi-Fi" onClick={() => (setMenuBar(null), setPanel(panel === "wifi" ? null : "wifi"))}><WifiGlyph off={!wifi} /></button>
@@ -365,16 +365,19 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
           </aside>
           <section className="fx-main" onPointerDown={e => e.target === e.currentTarget && setSel(null)}>
             <div className="fx-toolbar" onPointerDown={dragWindow}>
-              <button className="fx-pill fx-glass" aria-label="Back" disabled={!history.back.length} style={{ opacity: history.back.length ? 1 : 0.4 }} onClick={back}><SFChevronLeft /></button>
-              <button className="fx-pill fx-glass" aria-label="Forward" disabled={!history.fwd.length} style={{ opacity: history.fwd.length ? 1 : 0.4 }} onClick={fwd}><SFChevronRight /></button>
+              <div className="fx-navpill fx-glass" data-nodrag>
+                <button className="fx-nav" aria-label="Back" disabled={!history.back.length} onClick={back}><SFChevronLeft size={16} /></button>
+                <i className="fx-nav-div" aria-hidden />
+                <button className="fx-nav" aria-label="Forward" disabled={!history.fwd.length} onClick={fwd}><SFChevronRight size={16} /></button>
+              </div>
               <div className="fx-title"><SmallFolder size={20} /><span>{folderName(loc)}</span></div>
-              <div style={{ flex: 1 }} />
+              <div className="fx-tb-sp" />
               <div className="fx-seg fx-glass" data-nodrag>
                 <button aria-label="as Icons" aria-pressed={view === "icons"} onClick={() => setView("icons")}><SFGrid /></button>
                 <button aria-label="as List" aria-pressed={view === "list"} onClick={() => setView("list")}><SFList /></button>
               </div>
               <button className="fx-pill fx-glass" aria-label="New Folder" onClick={newFolder}><SFFolderPlus /></button>
-              <Link href="/entries/new" className="fx-pill fx-glass" style={{ textDecoration: "none" }}>New Entry</Link>
+              <Link href="/entries/new" className="fx-pill fx-glass" style={{ textDecoration: "none" }}><span className="fx-lbl">New Entry</span><span className="fx-plus" aria-hidden>+</span></Link>
               <div className="fx-search-w" data-nodrag>
                 <SFSearch />
                 <input className="fx-search fx-glass" placeholder="Search" value={query} onChange={e => setQuery(e.target.value)} />
@@ -389,7 +392,6 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
                 e.preventDefault();
                 setCtx({ x: e.clientX, y: e.clientY, items: [{ label: "New Folder", keys: "⇧⌘N", run: newFolder }, { label: "New Entry…", run: () => router.push("/entries/new") }] });
               }}
-              onDragOver={e => isDefaultView || loc !== "all" ? undefined : undefined}
             >
               {!folders.length && !entries.length ? (
                 <div className="fx-empty">{q ? "No Results" : isDefaultView ? "Everything is in a folder" : "This folder is empty"}</div>
@@ -488,6 +490,7 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
           openApp={id => wm.launch(id as AppId)}
           openEntry={id => router.push(`/entries/${id}`)}
           openFolder={id => (wm.launch("finder"), go(id))}
+          searchFinder={q => (wm.launch("finder"), setQuery(q))}
         />
       )}
 

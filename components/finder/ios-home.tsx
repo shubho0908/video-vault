@@ -4,8 +4,6 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTheme } from "next-themes";
 import { WallLayer } from "./wall-layer";
 import { WallPicker } from "./wall-picker";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 
 import { authClient } from "@/lib/auth-client";
 import { NotesIos } from "./notes-app";
@@ -117,11 +115,6 @@ export function IosHome({ lib, userName }: { lib: Lib; userName: string }) {
       <span className="gl"><img src={`/icons/${id}.png`} width={60} height={60} alt="" draggable={false} style={{ display: "block" }} /></span>
       <span className="nm">{id.split("-").map(w => w[0].toUpperCase() + w.slice(1)).join(" ")}</span>
     </div>
-  );
-  const icon = (a: (typeof APPS)[number]) => (
-    <button key={a.id} className="fx-ios-icon" onClick={e => launch(a.id, e.currentTarget.querySelector(".gl") as HTMLElement)}>
-      <span className="gl">{a.icon}</span><span className="nm">{a.name}</span>
-    </button>
   );
 
   return (

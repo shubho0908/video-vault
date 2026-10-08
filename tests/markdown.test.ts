@@ -29,3 +29,4 @@ describe("private Markdown image references", () => {
     expect(resolved).not.toContain("imagekit://image-2");
   });
 });
+

@@ -55,3 +55,4 @@ describe("journal input validation", () => {
     ).toBe(false);
   });
 });
+

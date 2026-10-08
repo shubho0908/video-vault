@@ -212,3 +212,4 @@ export function LegalDocument({
     </main>
   );
 }
+

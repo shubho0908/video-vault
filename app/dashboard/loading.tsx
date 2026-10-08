@@ -45,3 +45,4 @@ export default function DashboardLoading() {
     </JournalShell>
   );
 }
+

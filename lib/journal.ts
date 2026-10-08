@@ -349,3 +349,79 @@ export async function deletePlaylist(ownerId: string, playlistId: string) {
     .returning({ id: playlists.id });
   if (!rows[0]) throw new Error("That playlist was not found.");
 }
+
+
+export const folderNameSchema = z
+  .string()
+  .trim()
+  .min(1, "A folder name is required.")
+  .max(80);
+
+export async function renamePlaylist(
+  ownerId: string,
+  playlistId: string,
+  name: string
+) {
+  const rows = await db
+    .update(playlists)
+    .set({ name: folderNameSchema.parse(name), updatedAt: new Date() })
+    .where(and(eq(playlists.id, playlistId), eq(playlists.ownerId, ownerId)))
+    .returning({ id: playlists.id });
+  if (!rows[0]) throw new Error("That playlist was not found.");
+}
+
+export async function listMemberships(ownerId: string) {
+  return db
+    .select({
+      playlistId: playlistEntries.playlistId,
+      entryId: playlistEntries.entryId,
+    })
+    .from(playlistEntries)
+    .innerJoin(playlists, eq(playlistEntries.playlistId, playlists.id))
+    .where(eq(playlists.ownerId, ownerId))
+    .orderBy(playlistEntries.playlistId, playlistEntries.position);
+}
+
+/**
+ * One command for Finder drag/drop, copy and "Move to...": remove from
+ * `fromId` (if any) and add to `toId` (if any), atomically. Nothing else in
+ * either folder changes.
+ */
+export async function placeEntry(
+  ownerId: string,
+  input: { entryId: string; fromId: string | null; toId: string | null }
+) {
+  const { entryId, fromId, toId } = input;
+  const [entry, ...folders] = await Promise.all([
+    getEntryForOwner(ownerId, entryId),
+    ...[fromId, toId].map(id => (id ? getPlaylistForOwner(ownerId, id) : true)),
+  ]);
+  if (!entry) throw new Error("That journal entry was not found.");
+  if (folders.some(folder => !folder))
+    throw new Error("That playlist was not found.");
+
+  const steps = [];
+  if (fromId && fromId !== toId)
+    steps.push(
+      db
+        .delete(playlistEntries)
+        .where(
+          and(
+            eq(playlistEntries.playlistId, fromId),
+            eq(playlistEntries.entryId, entryId)
+          )
+        )
+    );
+  if (toId)
+    steps.push(
+      db
+        .insert(playlistEntries)
+        .values({
+          playlistId: toId,
+          entryId,
+          position: sql`(select count(*)::int from ${playlistEntries} where ${playlistEntries.playlistId} = ${toId})`,
+        })
+        .onConflictDoNothing()
+    );
+  if (steps.length) await db.batch(steps as [(typeof steps)[0], ...typeof steps]);
+}

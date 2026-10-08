@@ -57,10 +57,13 @@ describe("navigation performance boundaries", () => {
   });
 
   it("renders loading boundaries synchronously as skeleton trees", () => {
-    for (const Loading of [DashboardLoading, EntryLoading]) {
+    // entry routes now render inside the Finder/iOS scene and have no page skeleton
+    expect(renderToStaticMarkup(createElement(EntryLoading))).toBe("");
+    for (const Loading of [DashboardLoading]) {
       const markup = renderToStaticMarkup(createElement(Loading));
       expect(markup).toContain("animate-pulse");
       expect(markup).toContain("<main");
     }
   });
 });
+

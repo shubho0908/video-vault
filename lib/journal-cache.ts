@@ -7,6 +7,7 @@ import {
   getPlaylistForOwner as readPlaylist,
   listEntries as readEntries,
   listEntryChoices as readEntryChoices,
+  listMemberships as readMemberships,
   listPlaylists as readPlaylists,
   listTopics as readTopics,
 } from "@/lib/journal";
@@ -133,5 +134,14 @@ export function getPlaylistEntries(ownerId: string, playlistId: string) {
       playlistTag(ownerId, playlistId),
     ],
     () => readPlaylistEntries(ownerId, playlistId)
+  );
+}
+
+
+export function listMemberships(ownerId: string) {
+  return cached(
+    ["memberships", ownerId],
+    [ownerPlaylistsTag(ownerId), ownerEntriesTag(ownerId)],
+    () => readMemberships(ownerId)
   );
 }

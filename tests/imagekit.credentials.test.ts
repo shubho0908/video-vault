@@ -24,3 +24,4 @@ describe("ImageKit credentials", () => {
     expect(response.status).toBe(200);
   }, 10_000);
 });
+

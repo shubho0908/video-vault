@@ -20,6 +20,8 @@ import {
   entryInputSchema,
   createPlaylist,
   deletePlaylist,
+  placeEntry,
+  renamePlaylist,
   playlistInputSchema,
   updatePlaylist,
 } from "@/lib/journal";
@@ -139,6 +141,45 @@ export async function deletePlaylistAction(
     await deletePlaylist(session.user.id, playlistId);
     updateTag(ownerPlaylistsTag(session.user.id));
     updateTag(playlistTag(session.user.id, playlistId));
+    revalidatePath("/dashboard");
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: messageFromError(error) };
+  }
+}
+
+
+export async function createFolderAction(name: string): Promise<ActionResult> {
+  return savePlaylistAction(null, { name });
+}
+
+export async function renameFolderAction(
+  playlistId: string,
+  name: string
+): Promise<ActionResult> {
+  try {
+    const session = await requireOwner();
+    await renamePlaylist(session.user.id, playlistId, name);
+    updateTag(ownerPlaylistsTag(session.user.id));
+    updateTag(playlistTag(session.user.id, playlistId));
+    revalidatePath("/dashboard");
+    return { ok: true, id: playlistId };
+  } catch (error) {
+    return { ok: false, error: messageFromError(error) };
+  }
+}
+
+export async function placeEntryAction(input: {
+  entryId: string;
+  fromId: string | null;
+  toId: string | null;
+}): Promise<ActionResult> {
+  try {
+    const session = await requireOwner();
+    await placeEntry(session.user.id, input);
+    for (const id of [input.fromId, input.toId])
+      if (id) updateTag(playlistTag(session.user.id, id));
+    updateTag(ownerPlaylistsTag(session.user.id));
     revalidatePath("/dashboard");
     return { ok: true };
   } catch (error) {

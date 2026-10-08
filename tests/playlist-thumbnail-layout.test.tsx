@@ -51,3 +51,4 @@ describe("playlist thumbnail collage", () => {
     expect(markup).not.toContain("/hqdefault.jpg");
   });
 });
+

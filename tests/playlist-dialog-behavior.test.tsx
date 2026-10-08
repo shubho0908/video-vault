@@ -84,3 +84,4 @@ describe("playlist editor ordering controls", () => {
     expect(document.querySelector("ol")!.textContent).toContain("Beta");
   });
 });
+

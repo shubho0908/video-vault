@@ -1,3 +1,7 @@
+/* The saved wallpaper: the head boot script sets html[data-wall-*] and --fx-wall-* (see lib/wallpaper-boot.ts).
+   (0,2,1) beats the theme defaults below (0,2,0) regardless of source order. Zero per-wallpaper CSS. */
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) { html[data-wall-mac] .fx { --fx-wall: var(--fx-wall-mac); } }
+@media not all and (min-width: 1024px) and (hover: hover) and (pointer: fine) { html[data-wall-ios] .fx { --fx-wall: var(--fx-wall-ios); } }
 /* macOS Tahoe 26 desktop + iOS 26 layers. Scoped under .fx so the rest of the app is untouched. */
 .fx {
   --fx-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", system-ui, "Helvetica Neue", sans-serif;
@@ -541,6 +545,12 @@
 .fx-ew-h1 { font-size: 28px; line-height: 1.12; font-weight: 700; letter-spacing: -.01em; margin: 10px 0 16px; text-wrap: balance; word-break: break-word; }
 .fx-ew-video { border-radius: 14px; overflow: hidden; background: #000; box-shadow: 0 0 0 .5px var(--fx-sep); aspect-ratio: 16/9; }
 .fx-ew-video iframe { width: 100%; height: 100%; border: 0; display: block; }
+.fx-ew-poster { position: relative; display: block; width: 100%; height: 100%; padding: 0; cursor: pointer !important; background: #000; }
+.fx-ew-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fx-ew-play { position: absolute; inset: 0; margin: auto; width: 68px; height: 68px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: rgba(0,0,0,.55); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.35); transition: transform .15s ease-out, background .15s; }
+.fx-ew-play svg { margin-left: 3px; }
+.fx-ew-poster:hover .fx-ew-play, .fx-ew-poster:focus-visible .fx-ew-play { transform: scale(1.08); background: rgba(0,0,0,.7); }
+.fx-ew-poster:focus-visible { outline: 2px solid var(--fx-accent); outline-offset: -2px; }
 .fx-ew-sec { font-size: 13px; font-weight: 600; margin: 24px 0 10px; color: var(--fx-label-2); display: flex; justify-content: space-between; align-items: baseline; }
 .fx-ew-sec small { font-weight: 400; font-size: 12px; }
 .fx-ew-side .fx-ew-sec { margin-top: 0; }

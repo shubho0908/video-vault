@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Newsreader } from "next/font/google";
 
 import "@/app/globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { wallpaperBootScript } from "@/lib/wallpaper-boot";
 
 const sans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const mono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -29,10 +30,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* preload the wallpaper the current viewport will paint (dark is the default theme) */}
-        <link rel="preload" as="image" type="image/avif" href="/wp/mac-dark-1280.avif" media="(min-width: 1024px) and (hover: hover) and (pointer: fine) and (max-width: 1499px)" fetchPriority="high" />
-        <link rel="preload" as="image" type="image/avif" href="/wp/mac-dark-2048.avif" media="(min-width: 1500px) and (hover: hover) and (pointer: fine)" fetchPriority="high" />
-        <link rel="preload" as="image" type="image/avif" href="/wp/ios-dark-645.avif" media="(max-width: 499px), (hover: none)" fetchPriority="high" />
+        {/*
+          Paint the saved wallpaper on the very first frame: this sync script copies the stored choice onto
+          <html data-wall-*> (finder.css does the painting) and preloads the exact image for this
+          viewport, theme and choice. It must stay inline and blocking, like the next-themes class script.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: wallpaperBootScript() }} />
       </head>
       <body
         className={`${sans.variable} ${mono.variable} ${serif.variable} antialiased`}

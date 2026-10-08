@@ -8,7 +8,7 @@ export function WallPicker({ kind }: { kind: WallKind }) {
   const { resolvedTheme } = useTheme();
   const w = kind === "mac" ? 160 : 90, h = kind === "mac" ? 100 : 160;
   const thumb = (id: string) => {
-    if (id !== "default") return wallUrl(kind, id, false)!;
+    if (id !== "default") return wallUrl(kind, id, 0, 1)!;
     // the default follows the theme: show the one that is active
     return `/wp/${kind}-${resolvedTheme === "light" ? "light" : "dark"}-${kind === "mac" ? 1280 : 645}.webp`;
   };

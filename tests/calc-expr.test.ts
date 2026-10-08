@@ -17,6 +17,8 @@ describe("Spotlight arithmetic", () => {
     expect(evalExpr("6 x 7")).toBe(42);
     expect(evalExpr("1,250 + 750")).toBe(2000);
     expect(evalExpr(" 12 * 0.5 ")).toBe(6);
+    expect(evalExpr("2.+3")).toBe(5);
+    expect(evalExpr("2.5+.5")).toBe(3);
   });
 
   it("returns null for anything that is not a finite calculation", () => {

@@ -14,7 +14,7 @@ import { ImagePanel } from "@/components/journal/image-panel";
 import { MarkdownEditor } from "@/components/journal/markdown-editor";
 import { NoteMarkdown } from "@/components/journal/note-markdown";
 import type { JournalEntry } from "@/lib/journal";
-import { getYouTubeEmbedUrl, getYouTubeThumbnail } from "@/lib/youtube";
+import { getYouTubeEmbedUrl, getYouTubeThumbnail, getYouTubeVideoId } from "@/lib/youtube";
 
 export type SceneImage = { id: string; filePath: string; altText: string | null; width: number | null; height: number | null; signedUrl: string };
 export type SceneMode = "new" | "view" | "edit";
@@ -31,17 +31,6 @@ const DRAFT = "vv-entry-draft";
 const SHEET_EASE = "cubic-bezier(.32,.72,0,1)";
 
 const dateFormat = new Intl.DateTimeFormat("en", { month: "long", day: "numeric", year: "numeric" });
-
-function youtubeId(value: string) {
-  try {
-    const url = new URL(value);
-    const host = url.hostname.replace(/^www\./, "");
-    const candidate = host === "youtu.be" ? url.pathname.split("/").filter(Boolean)[0] : (url.searchParams.get("v") ?? (url.pathname.startsWith("/embed/") ? url.pathname.split("/")[2] : ""));
-    return candidate && /^[A-Za-z0-9_-]{11}$/.test(candidate) ? candidate : null;
-  } catch {
-    return null;
-  }
-}
 
 type Values = { title: string; youtubeUrl: string; topic: string; notesMarkdown: string };
 
@@ -68,11 +57,11 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
   const backRef = useRef<HTMLDivElement>(null);
   const closing = useRef(false);
 
-  const cur = entry ? { ...entry, title: values.title.trim() || entry.title, topic: values.topic.trim(), notesMarkdown: values.notesMarkdown, youtubeId: youtubeId(values.youtubeUrl) ?? entry.youtubeId } : undefined;
+  const cur = entry ? { ...entry, title: values.title.trim() || entry.title, topic: values.topic.trim(), notesMarkdown: values.notesMarkdown, youtubeId: getYouTubeVideoId(values.youtubeUrl) ?? entry.youtubeId } : undefined;
   const imagePanel = useMemo(() => (entry ? <ImagePanel entryId={entry.id} images={images} /> : null), [entry, images]);
   const editing = mode !== "view";
   const dirty = editing && (values.title !== (entry?.title ?? "") || values.youtubeUrl !== (entry?.youtubeUrl ?? "") || values.topic !== (entry?.topic ?? "") || values.notesMarkdown !== (entry?.notesMarkdown ?? ""));
-  const vid = youtubeId(values.youtubeUrl);
+  const vid = getYouTubeVideoId(values.youtubeUrl);
   const update = <K extends keyof Values>(k: K, v: Values[K]) => setValues(c => ({ ...c, [k]: v }));
 
   // open animation: macOS window pop, iOS sheet rise
@@ -97,13 +86,18 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
     else router.back();
   }, [desktop, router, standalone]);
 
-  const requestClose = useCallback(() => (dirty ? setAlert("discard") : void leave()), [dirty, leave]);
+  const requestClose = useCallback(() => {
+    if (saving) return;
+    if (dirty) setAlert("discard");
+    else void leave();
+  }, [saving, dirty, leave]);
 
   function save() {
-    if (saving) return;
+    if (saving || closing.current || !values.title.trim() || !vid) return;
     setError(null);
+    setAlert(null);
     const vals = values;
-    const ytId = youtubeId(vals.youtubeUrl);
+    const ytId = getYouTubeVideoId(vals.youtubeUrl);
     if (!entry) {
       // create: show it in the Finder now, close the window, save in the background
       const tmp = `tmp-e-${Date.now().toString(36)}`;
@@ -124,18 +118,19 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
         });
       return;
     }
-    // edit: show the saved state now, roll back into the editor if the server says no
+    // Keep the editor open until the server confirms the save.
     bus.patch(entry.id, { title: vals.title.trim(), topic: vals.topic.trim(), ...(ytId ? { youtubeId: ytId } : {}) });
-    setMode("view");
     setSaving(true);
     saveEntryAction(entry.id, vals)
       .catch(() => ({ ok: false as const, error: "Something went wrong." }))
       .then(res => {
         setSaving(false);
-        if (res.ok) router.refresh();
+        if (res.ok) {
+          setMode("view");
+          router.refresh();
+        }
         else {
           bus.unpatch(entry.id);
-          setMode("edit");
           setError(res.error ?? "Could not save.");
         }
       });
@@ -250,7 +245,7 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
   const heading = mode === "new" ? "New Entry" : mode === "edit" ? "Edit Entry" : (entry?.title ?? "Entry");
   const actions = editing ? (
     <>
-      <button className={desktop ? "fx-btn" : "fx-ios-btn fx-glass"} onClick={requestClose}>Cancel</button>
+      <button className={desktop ? "fx-btn" : "fx-ios-btn fx-glass"} onClick={requestClose} disabled={saving}>Cancel</button>
       <button className={desktop ? "fx-btn primary" : "fx-ios-btn fx-ios-primary"} onClick={save} disabled={saving || !values.title.trim() || !vid}>
         {saving ? <LoaderCircle size={14} className="fx-spin" /> : null}{mode === "new" ? "Create" : "Save"}
       </button>
@@ -289,7 +284,7 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
           </aside>
         </div>
       ) : (
-        <div className="fx-ew-form">
+        <fieldset className="fx-ew-form" disabled={saving} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
           <div className="fx-ew-top">
             <div className="fx-ew-group">
               <label className="fx-ew-row"><span>Title</span><input value={values.title} onChange={e => update("title", e.target.value)} placeholder="What did you explain?" autoFocus={desktop} /></label>
@@ -309,7 +304,7 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
           ) : (
             <p className="fx-ew-hint">Reference images can be added after the entry is created.</p>
           )}
-        </div>
+        </fieldset>
       )}
       {error ? <p role="alert" className="fx-ew-error">{error}</p> : null}
     </div>
@@ -343,7 +338,7 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
         <div ref={frame} className={`fx-window fx-ew-win ${zoomed ? "fx-zooming-on" : ""}`} data-active="true" data-min={ew.min} data-zoomed={zoomed} style={style} role="dialog" aria-label={heading}>
           <div className="fx-traffic" data-nodrag>
             <button className="r" aria-label="Close" onClick={requestClose}><svg viewBox="0 0 12 12"><path d="m3.600 3.600 4.800 4.800m0-4.800-4.800 4.800" /></svg></button>
-            <button className="y" aria-label="Minimize" onClick={() => void ew.minimize()}><svg viewBox="0 0 12 12"><path d="M3 6h6" /></svg></button>
+            <button className="y" aria-label="Minimize" disabled={standalone} onClick={() => void ew.minimize()}><svg viewBox="0 0 12 12"><path d="M3 6h6" /></svg></button>
             <button className="g" aria-label="Zoom" onClick={() => setZoomed(z => !z)}><svg viewBox="0 0 12 12"><path d="M3.500 8.500V4.600a1.100 1.100 0 0 1 1.100-1.100h3.900M8.500 3.500v3.900a1.100 1.100 0 0 1-1.100 1.100H3.500" /></svg></button>
           </div>
           <section className="fx-main fx-ew-panel">

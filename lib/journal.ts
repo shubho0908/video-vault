@@ -419,7 +419,7 @@ export async function placeEntry(
         .values({
           playlistId: toId,
           entryId,
-          position: sql`(select count(*)::int from ${playlistEntries} where ${playlistEntries.playlistId} = ${toId})`,
+          position: sql`(select coalesce(max(${playlistEntries.position}), -1) + 1 from ${playlistEntries} where ${playlistEntries.playlistId} = ${toId})`,
         })
         .onConflictDoNothing()
     );

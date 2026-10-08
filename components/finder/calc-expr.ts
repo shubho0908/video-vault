@@ -6,7 +6,7 @@ export function evalExpr(src: string): number | null {
   const peek = () => s[i];
   const num = (): number => {
     if (peek() === "(") { i++; const v = add(); if (peek() !== ")") throw 0; i++; return v; }
-    const m = /^\d*\.?\d+(?:e[+-]?\d+)?|^\d+\.?/i.exec(s.slice(i));
+    const m = /^(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?/i.exec(s.slice(i));
     if (!m) throw 0;
     i += m[0].length;
     return parseFloat(m[0]);
@@ -38,6 +38,6 @@ export function evalExpr(src: string): number | null {
 }
 
 export function formatNum(v: number): string {
-  const r = Math.round(v * 1e10) / 1e10;
+  const r = Math.round(v * 1e10) / 1e10 + 0;
   return r.toLocaleString("en-US", { maximumFractionDigits: 10, useGrouping: false });
 }

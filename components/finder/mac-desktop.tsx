@@ -178,6 +178,7 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
       else if (mod && e.key === "[") (e.preventDefault(), back());
       else if (mod && e.key === "]") (e.preventDefault(), fwd());
       else if (mod && e.key === "ArrowDown") (e.preventDefault(), openSel());
+      else if (e.key === "Enter" && sel?.kind === "entry") (e.preventDefault(), openSel());
       else if (e.key === "Enter" && sel?.kind === "folder") setRenaming(sel.id);
       else if (e.key === " " && sel?.kind === "entry") {
         e.preventDefault();
@@ -377,7 +378,7 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
                 <button aria-label="as List" aria-pressed={view === "list"} onClick={() => setView("list")}><SFList /></button>
               </div>
               <button className="fx-pill fx-glass" aria-label="New Folder" onClick={newFolder}><SFFolderPlus /></button>
-              <Link href="/entries/new" className="fx-pill fx-glass" style={{ textDecoration: "none" }}><span className="fx-lbl">New Entry</span><span className="fx-plus" aria-hidden>+</span></Link>
+              <Link href="/entries/new" className="fx-pill fx-glass" aria-label="New Entry" style={{ textDecoration: "none" }}><span className="fx-lbl">New Entry</span><span className="fx-plus" aria-hidden>+</span></Link>
               <div className="fx-search-w" data-nodrag>
                 <SFSearch />
                 <input className="fx-search fx-glass" placeholder="Search" value={query} onChange={e => setQuery(e.target.value)} />
@@ -407,6 +408,7 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
                         className="fx-item"
                         data-drop={drop === f.id}
                         tabIndex={0}
+                        onFocus={() => (wm.focus("finder"), setSel({ kind: "folder", id: f.id }))}
                         onPointerDown={e => (e.stopPropagation(), setSel({ kind: "folder", id: f.id }))}
                         onDoubleClick={() => go(f.id)}
                         onContextMenu={e => (e.preventDefault(), e.stopPropagation(), setSel({ kind: "folder", id: f.id }), setCtx({ x: e.clientX, y: e.clientY, items: itemMenu({ kind: "folder", id: f.id }) }))}
@@ -439,6 +441,7 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
                         data-dragging={dragId === e.id}
                         draggable
                         tabIndex={0}
+                        onFocus={() => (wm.focus("finder"), setSel({ kind: "entry", id: e.id }))}
                         onDragStart={ev => (ev.dataTransfer.setData(DRAG, e.id), (ev.dataTransfer.effectAllowed = "copyMove"), setDragId(e.id))}
                         onDragEnd={() => setDragId(null)}
                         onPointerDown={ev => (ev.stopPropagation(), setSel({ kind: "entry", id: e.id }))}
@@ -456,13 +459,13 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
                   <thead><tr><th style={{ width: "58%" }}>Name</th><th>Kind</th><th style={{ width: 80 }}>Items</th></tr></thead>
                   <tbody>
                     {folders.map(f => (
-                      <tr key={f.id} aria-selected={sel?.kind === "folder" && sel.id === f.id} onPointerDown={() => setSel({ kind: "folder", id: f.id })} onDoubleClick={() => go(f.id)}>
-                        <td><span><SmallFolder size={16} />{f.name}</span></td>
+                      <tr key={f.id} tabIndex={0} onFocus={() => (wm.focus("finder"), setSel({ kind: "folder", id: f.id }))} aria-selected={sel?.kind === "folder" && sel.id === f.id} onPointerDown={() => setSel({ kind: "folder", id: f.id })} onDoubleClick={() => go(f.id)}>
+                        <td><span><SmallFolder size={16} />{renaming === f.id ? <RenameField initial={f.name} done={n => (setRenaming(null), n && n !== f.name && renameFolder(f.id, n))} /> : f.name}</span></td>
                         <td>Folder</td><td>{counts.get(f.id) ?? 0}</td>
                       </tr>
                     ))}
                     {entries.map(e => (
-                      <tr key={e.id} aria-selected={sel?.kind === "entry" && sel.id === e.id} draggable onDragStart={ev => ev.dataTransfer.setData(DRAG, e.id)} onPointerDown={() => setSel({ kind: "entry", id: e.id })} onDoubleClick={() => router.push(`/entries/${e.id}`)}>
+                      <tr key={e.id} tabIndex={0} onFocus={() => (wm.focus("finder"), setSel({ kind: "entry", id: e.id }))} aria-selected={sel?.kind === "entry" && sel.id === e.id} draggable onDragStart={ev => ev.dataTransfer.setData(DRAG, e.id)} onPointerDown={() => setSel({ kind: "entry", id: e.id })} onDoubleClick={() => router.push(`/entries/${e.id}`)}>
                         <td><span><img src={thumb(e.youtubeId)} alt="" width={26} height={16} style={{ borderRadius: 2, objectFit: "cover" }} />{e.title}</span></td>
                         <td>{e.topic}</td><td>--</td>
                       </tr>
@@ -564,11 +567,12 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
 
 function RenameField({ initial, done }: { initial: string; done: (name: string) => void }) {
   const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => ref.current?.select(), []);
+  useEffect(() => { ref.current?.focus(); ref.current?.select(); }, []);
   return (
     <input
       ref={ref}
       className="fx-rename"
+      aria-label="Rename folder"
       defaultValue={initial}
       onPointerDown={e => e.stopPropagation()}
       onBlur={e => done(e.currentTarget.value.trim())}

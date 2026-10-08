@@ -224,8 +224,9 @@ export function Dock({ wm }: { wm: WM }) {
     const a = 1 - Math.exp(-dt * 14);
     c.x += (g.x - c.x) * (1 - Math.exp(-dt * 22));
     c.k += ((g.on ? 1 : 0) - c.k) * a;
-    const done = !g.on && c.k < 0.003;
-    if (done) { c.k = 0; c.t = 0; raf.current = 0; setMag(null); return; }
+    const targetK = g.on ? 1 : 0;
+    const done = Math.abs(targetK - c.k) < 0.003 && Math.abs(g.x - c.x) < 0.1;
+    if (done) { c.x = g.x; c.k = targetK; c.t = 0; raf.current = 0; setMag(g.on ? { x: c.x, k: c.k } : null); return; }
     setMag({ x: c.x, k: c.k });
     raf.current = requestAnimationFrame(tick);
   };

@@ -3,7 +3,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import { EntrySlot } from "./dock-entry";
-import { fitThumb, nextFrame, prepareGenie, prepareMinimize, type Genie } from "./genie";
+import { coolGenie, fitThumb, nextFrame, takeMinimize, takeRestore, warmGenie, type Genie } from "./genie";
 import { ResizeHandles, ZOOM_STYLE, flipZoom, startWindowDrag, type Geom } from "./window-geom";
 import { CalculatorIcon, FinderFace, NotesIcon, SettingsIcon } from "./icons";
 
@@ -28,6 +28,8 @@ type Api = {
   /** Remember the current box so the zoom can animate from it. */
   prepareZoom(): void;
   setHidden(hidden: boolean): void;
+  /** Pointer is on the minimize button / Dock thumbnail: build the genie ahead of the click (or drop it). */
+  warm(dir: "in" | "out", on: boolean): void;
 };
 
 const base: Win = { open: false, min: false, zoomed: false, z: 1, x: 0, y: 0 };
@@ -56,6 +58,15 @@ export function useWindowManager() {
   const [front, setFront] = useState<AppId>("finder");
   const [bounce, setBounce] = useState<AppId | null>(null);
   const [thumbs, setThumbs] = useState<Partial<Record<AppId, HTMLElement>>>({});
+  /**
+   * Dock slots for minimized windows, separate from `min` so a slot can grow in before the genie lands
+   * and shrink away after the window is back out (like macOS) instead of popping in and out.
+   */
+  const [docked, setDocked] = useState<Partial<Record<AppId, "in" | "out">>>({});
+  const dock = useCallback((id: AppId, v: "in" | "out" | undefined) => setDocked(d => (d[id] === v ? d : { ...d, [id]: v })), []);
+  const undock = useCallback((id: AppId) => dock(id, undefined), [dock]);
+  /** Final slot box, measured when the slot mounts (before it animates its width). */
+  const slotRects = useRef<Partial<Record<AppId, DOMRect>>>({});
   const apis = useRef<Partial<Record<AppId, Api>>>({});
   const slots = useRef<Partial<Record<AppId, HTMLElement | null>>>({});
   // Latest window state for event handlers, so every callback below is created once and stays stable.
@@ -96,9 +107,11 @@ export function useWindowManager() {
         // never leave the window invisible or locked, whatever happened above
         api?.setHidden(false);
         busy.current.delete(id);
+        // the empty slot closes up only once the window is fully out
+        if (!live.current[id].min) dock(id, "out");
       }
     },
-    [update]
+    [update, dock]
   );
 
   const launch = useCallback(
@@ -121,9 +134,10 @@ export function useWindowManager() {
       if (!live.current[id].min) await apis.current[id]?.close();
       patch(id, { open: false, min: false, zoomed: false });
       setThumbs(t => ({ ...t, [id]: undefined }));
+      undock(id);
       setFront(f => (f === id ? nextFront(id) : f));
     },
-    [patch]
+    [patch, undock]
   );
 
   const minimize = useCallback(
@@ -136,13 +150,16 @@ export function useWindowManager() {
         // snapshot now (before React touches the window) and build while the Dock makes room
         const prepared = (api?.prepareMinimize() ?? Promise.resolve({ genie: null, thumb: null })).catch(() => ({ genie: null, thumb: null }));
         patch(id, { min: true });
-        await nextFrame();
-        await nextFrame();
+        dock(id, "in");
         const { genie, thumb } = await prepared;
-        const slot = slots.current[id]?.getBoundingClientRect();
-        if (genie && slot) await genie.play(slot, "in", 620);
+        // the click's state update commits right after the event, mounting the slot; wait a frame only if not yet
+        for (let i = 0; i < 3 && !slotRects.current[id]; i++) await nextFrame();
+        // the slot is still growing: aim at the box it grows into, not its current one
+        const slot = slotRects.current[id] ?? slots.current[id]?.getBoundingClientRect();
+        const land = () => thumb && setThumbs(t => (t[id] === thumb ? t : { ...t, [id]: thumb }));
+        if (genie && slot) await genie.play(slot, "in", 620, land);
         else genie?.cancel();
-        if (thumb) setThumbs(t => ({ ...t, [id]: thumb }));
+        land();
         setFront(f => (f === id ? nextFront(id) : f));
       } finally {
         api?.setHidden(true);
@@ -150,7 +167,7 @@ export function useWindowManager() {
       }
       if (queued.current.delete(id)) void restore(id);
     },
-    [patch, restore]
+    [patch, restore, dock]
   );
 
   const setGeom = useCallback((id: AppId, g: Geom) => patch(id, g), [patch]);
@@ -176,7 +193,13 @@ export function useWindowManager() {
     [focus, patch]
   );
 
-  return { wins, front, bounce, thumbs, apis, slots, focus, launch, close, minimize, restore, zoom, drag, setGeom };
+  /** Speculative genie build while the pointer rests on a minimize button or Dock thumbnail (never during an animation). */
+  const warm = useCallback((id: AppId, dir: "in" | "out", on: boolean) => {
+    if (on && busy.current.has(id)) return;
+    apis.current[id]?.warm(dir, on);
+  }, []);
+
+  return { wins, front, bounce, thumbs, docked, undock, slotRects, apis, slots, focus, warm, launch, close, minimize, restore, zoom, drag, setGeom };
 }
 export type WM = ReturnType<typeof useWindowManager>;
 
@@ -196,14 +219,18 @@ export function AppWindow({ id, wm, className, children }: { id: AppId; wm: WM; 
     wm.apis.current[id] = {
       async close() {
         const el = ref.current;
+        coolGenie(el, "in");
         if (el) await finished(el.animate([{ transform: "scale(1)", opacity: 1 }, { transform: "scale(0.94)", opacity: 0 }], { duration: 200, easing: EASE_IN, fill: "forwards" }));
       },
       async prepareMinimize() {
-        return ref.current ? prepareMinimize(ref.current) : { genie: null, thumb: null };
+        return ref.current ? takeMinimize(ref.current) : { genie: null, thumb: null };
       },
       async prepareRestore() {
-        const el = ref.current;
-        return el ? prepareGenie(el) : null;
+        return ref.current ? takeRestore(ref.current) : null;
+      },
+      warm(dir, on) {
+        if (on) warmGenie(ref.current, dir);
+        else coolGenie(ref.current, dir);
       },
       prepareZoom() {
         zoomFrom.current = ref.current?.getBoundingClientRect() ?? null;
@@ -255,7 +282,13 @@ export function AppWindow({ id, wm, className, children }: { id: AppId; wm: WM; 
     >
       <div className="fx-traffic" data-nodrag>
         <button className="r" aria-label="Close" onClick={() => wm.close(id)}><svg viewBox="0 0 12 12"><path d="m3.600 3.600 4.800 4.800m0-4.800-4.800 4.800" /></svg></button>
-        <button className="y" aria-label="Minimize" onClick={() => wm.minimize(id)}><svg viewBox="0 0 12 12"><path d="M3 6h6" /></svg></button>
+        <button
+          className="y"
+          aria-label="Minimize"
+          onClick={() => wm.minimize(id)}
+          onPointerEnter={e => e.pointerType === "mouse" && !w.min && wm.warm(id, "in", true)}
+          onPointerLeave={() => wm.warm(id, "in", false)}
+        ><svg viewBox="0 0 12 12"><path d="M3 6h6" /></svg></button>
         <button className="g" aria-label="Zoom" disabled={!app.resizable} onClick={() => wm.zoom(id)}><svg viewBox="0 0 12 12"><path d="M3.500 8.500V4.600a1.100 1.100 0 0 1 1.100-1.100h3.900M8.500 3.500v3.900a1.100 1.100 0 0 1-1.100 1.100H3.500" /></svg></button>
       </div>
       {children}
@@ -280,7 +313,7 @@ function DockView({ wm }: { wm: WM }) {
   const items = useRef<(HTMLDivElement | null)[]>([]);
   const row = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<string | null>(null);
-  const minimized = ORDER.filter(id => wm.wins[id].open && wm.wins[id].min);
+  const minimized = ORDER.filter(id => wm.docked[id]);
 
   const paint = (x: number, k: number) => {
     items.current.forEach((el, i) => {
@@ -353,7 +386,7 @@ function DockView({ wm }: { wm: WM }) {
       )}
       <span className="fx-dock-sep" />
       {minimized.map(id => (
-        <Slot key={`m${id}`} id={id} wm={wm} />
+        <Slot key={`m${id}`} id={id} wm={wm} leaving={wm.docked[id] === "out"} />
       ))}
       <EntrySlot />
       {item("trash", "Trash", <img src="/icons/trash.png" width={BASE} height={BASE} alt="" draggable={false} style={{ display: "block" }} />)}
@@ -361,21 +394,49 @@ function DockView({ wm }: { wm: WM }) {
   );
 }
 /** The Dock only depends on window state, bounce and thumbnails; the rest of the desktop re-rendering must not touch it. */
-export const Dock = memo(DockView, (a, b) => a.wm.wins === b.wm.wins && a.wm.bounce === b.wm.bounce && a.wm.thumbs === b.wm.thumbs);
+export const Dock = memo(DockView, (a, b) => a.wm.wins === b.wm.wins && a.wm.bounce === b.wm.bounce && a.wm.thumbs === b.wm.thumbs && a.wm.docked === b.wm.docked);
 
-function Slot({ id, wm }: { id: AppId; wm: WM }) {
+const SLOT_EASE = "cubic-bezier(.2,.8,.2,1)";
+/** The Dock's flex gap: a slot animating to zero width also takes its gap with it, so nothing jumps. */
+const DOCK_GAP = 6;
+
+function Slot({ id, wm, leaving }: { id: AppId; wm: WM; leaving: boolean }) {
   const app = APPS[id];
+  const item = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const thumb = wm.thumbs[id];
   const tw = Math.round((BASE * app.w) / app.h);
+  const { undock, slotRects } = wm;
   useEffect(() => {
     const el = box.current;
     if (!el || !thumb) return;
     fitThumb(thumb, tw, BASE);
     el.replaceChildren(thumb);
   }, [thumb, tw]);
+
+  // grow in: measure the final box first (the genie aims there), then open the gap from zero
+  useLayoutEffect(() => {
+    const el = item.current;
+    if (!el || !box.current) return;
+    slotRects.current[id] = box.current.getBoundingClientRect();
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
+      el.animate([{ width: "0px", marginLeft: `-${DOCK_GAP}px` }, { width: `${tw}px`, marginLeft: "0px" }], { duration: 280, easing: SLOT_EASE });
+    return () => void delete slotRects.current[id];
+  }, [id, tw, slotRects]);
+
+  // shrink away once the window is back out, then leave the Dock
+  useEffect(() => {
+    const el = item.current;
+    if (!leaving || !el) return;
+    for (const a of el.getAnimations()) a.cancel();
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const a = el.animate([{ width: `${tw}px`, marginLeft: "0px" }, { width: "0px", marginLeft: `-${DOCK_GAP}px` }], { duration: reduce ? 1 : 240, easing: SLOT_EASE, fill: "forwards" });
+    a.finished.then(() => undock(id), () => undefined);
+    return () => a.cancel();
+  }, [leaving, id, tw, undock]);
+
   return (
-    <div className="fx-dock-item" style={{ width: tw, height: BASE }} data-min={id}>
+    <div ref={item} className="fx-dock-item" style={{ width: tw, height: BASE }} data-min={id}>
       <div
         ref={el => {
           box.current = el;
@@ -384,8 +445,15 @@ function Slot({ id, wm }: { id: AppId; wm: WM }) {
         className="fx-dock-thumb"
         style={{ width: tw, height: BASE, opacity: thumb ? 1 : 0 }}
       />
-      <button aria-label={`Restore ${app.name}`} onClick={() => wm.restore(id)} className="fx-dock-thumb-hit">
-        <span className="fx-dock-badge">{app.icon(22)}</span>
+      <button
+        aria-label={`Restore ${app.name}`}
+        onClick={() => wm.restore(id)}
+        onPointerEnter={e => e.pointerType === "mouse" && thumb && wm.warm(id, "out", true)}
+        onPointerLeave={() => wm.warm(id, "out", false)}
+        className="fx-dock-thumb-hit"
+        disabled={leaving}
+      >
+        <span className="fx-dock-badge" style={{ opacity: thumb ? 1 : 0 }}>{app.icon(22)}</span>
       </button>
     </div>
   );

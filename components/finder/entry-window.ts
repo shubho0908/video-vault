@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
 import { entryDock, useEntryDock } from "./entry-dock";
-import { nextFrame, prepareGenie, prepareMinimize } from "./genie";
+import { coolGenie, nextFrame, takeMinimize, takeRestore, warmGenie } from "./genie";
 import type { Geom } from "./window-geom";
 
 
@@ -22,17 +22,20 @@ export function useEntryWindow(frame: RefObject<HTMLDivElement | null>, pos: Ref
     if (!el) return;
     busy.current = true;
     // build the copies while the window is still hidden, then show and animate in one frame
-    void prepareGenie(el)
+    void takeRestore(el)
       .catch(() => null)
       .then(async g => {
         setMin(false);
+        // the thumbnail leaves the Dock as the window genies out of it
+        entryDock.setThumb(null);
         try {
           if (g) await g.play(slot, "out", 560);
         } finally {
           el.style.visibility = "";
           minimized.current = false;
           busy.current = false;
-          entryDock.clear();
+          // the now empty slot closes up after the window is out
+          entryDock.leave();
         }
       });
   }, [frame]);
@@ -44,18 +47,19 @@ export function useEntryWindow(frame: RefObject<HTMLDivElement | null>, pos: Ref
     if (!el || busy.current || minimized.current) return;
     busy.current = true;
     // snapshot first: a cheap static copy (the video becomes its poster, so the Dock never loads a second player)
-    const prepared = prepareMinimize(el).catch(() => ({ genie: null, thumb: null }));
+    const prepared = takeMinimize(el).catch(() => ({ genie: null, thumb: null }));
     entryDock.show(title);
     setMin(true);
     minimized.current = true;
     try {
-      await nextFrame();
-      await nextFrame();
       const { genie: g, thumb } = await prepared;
-      const slot = entryDock.get()?.slot?.getBoundingClientRect();
-      if (g && slot) await g.play(slot, "in", 620);
+      for (let i = 0; i < 3 && !entryDock.get()?.slotRect; i++) await nextFrame();
+      // the slot is still growing: aim at the box it grows into
+      const slot = entryDock.get()?.slotRect ?? entryDock.get()?.slot?.getBoundingClientRect();
+      const land = () => thumb && entryDock.get()?.thumb !== thumb && entryDock.setThumb(thumb);
+      if (g && slot) await g.play(slot, "in", 620, land);
       else g?.cancel();
-      if (thumb) entryDock.setThumb(thumb);
+      land();
     } finally {
       el.style.visibility = "hidden";
       busy.current = false;
@@ -76,9 +80,26 @@ export function useEntryWindow(frame: RefObject<HTMLDivElement | null>, pos: Ref
     runRestore(rect);
   }, [rect, frame, runRestore]);
 
-  // leaving the route drops the dock item
-  useEffect(() => () => void entryDock.clear(), []);
+  /** Pointer on the minimize button / Dock thumbnail: build the genie before the click (or drop it). */
+  const warm = useCallback((dir: "in" | "out", on: boolean) => {
+    if (on && !busy.current) warmGenie(frame.current, dir);
+    else if (!on) coolGenie(frame.current, dir);
+  }, [frame]);
+  useEffect(() => {
+    entryDock.setWarm(warm);
+    return () => entryDock.setWarm(null);
+  }, [warm]);
+
+  // leaving the route drops the dock item and any prepared copies
+  useEffect(() => {
+    const el = frame.current;
+    return () => {
+      entryDock.clear();
+      coolGenie(el, "in");
+      coolGenie(el, "out");
+    };
+  }, [frame]);
   useEffect(() => { if (!enabled) entryDock.clear(); }, [enabled]);
 
-  return { size, commit, minimize, min };
+  return { size, commit, minimize, min, warm };
 }

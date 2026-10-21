@@ -17,13 +17,20 @@
 import { getYouTubeThumbnail } from "@/lib/youtube";
 
 const STEPS = 30;
-const CHUNK = 4;
+const CHUNK = 6;
 const LAG = 0.55;
 const OVERLAP = 3;
+/** Content within this many px of a band still goes into it (covers box-shadows such as the thumbnails'). */
+const BAND_MARGIN = 14;
 /** Target band height in px. Fewer, taller bands keep the copy count down on small windows. */
 const BAND_PX = 30;
 const MIN_BANDS = 14;
 const MAX_BANDS = 24;
+
+/** Below half a colour step (1/255): the copies are painted and kept, but cannot change a single pixel. */
+const GHOST = "0.002";
+/** Fraction of the minimize at which the Dock thumbnail starts fading in under the arriving genie. */
+const LAND_AT = 0.78;
 
 const ease = (x: number) => x * x * (3 - 2 * x);
 const clamp01 = (x: number) => Math.min(Math.max(x, 0), 1);
@@ -72,6 +79,19 @@ function quadMatrix(w: number, h: number, q: [Pt, Pt, Pt, Pt]): string {
   return `matrix3d(${a},${d},0,${g},${bb},${e},0,${h2},0,0,1,0,${c},${f},0,1)`;
 }
 
+/**
+ * Geometry of each kept template element (viewport px at snapshot time). `solid`: a box whose content
+ * never paints outside it, so a band that does not cross it can replace it with an empty box.
+ */
+type Geom = { t: number; b: number; w: number; h: number; solid: boolean };
+const geom = new WeakMap<Element, Geom>();
+
+/** Keep the element's box (so nothing after it moves) but drop all of its content. */
+function hollow(el: HTMLElement, w: number, h: number) {
+  el.replaceChildren();
+  Object.assign(el.style, { width: `${w}px`, height: `${h}px`, minWidth: "0", minHeight: "0", flex: "none", visibility: "hidden" });
+}
+
 const overlaps = (r: DOMRect, c: Box) => r.right > c.l && r.left < c.r && r.bottom > c.t && r.top < c.b;
 
 /** Element can scroll (cheap geometry test first, computed style only for real candidates). */
@@ -81,7 +101,7 @@ function scrolls(o: HTMLElement): boolean {
   return /(auto|scroll)/.test(cs.overflowY + cs.overflowX);
 }
 
-function flattenTextarea(o: HTMLTextAreaElement, c: HTMLElement) {
+function flattenTextarea(o: HTMLTextAreaElement, c: HTMLElement): HTMLElement {
   const cs = getComputedStyle(o);
   const d = document.createElement("div");
   const inner = document.createElement("div");
@@ -97,9 +117,10 @@ function flattenTextarea(o: HTMLTextAreaElement, c: HTMLElement) {
     display: cs.display === "inline" ? "block" : cs.display, flex: cs.flex,
   });
   c.replaceWith(d);
+  return d;
 }
 
-function flattenIframe(o: HTMLIFrameElement, c: HTMLElement) {
+function flattenIframe(o: HTMLIFrameElement, c: HTMLElement): HTMLElement {
   // An iframe cannot be cloned with its picture (and a copied player would load and autoplay a second video).
   // Use the video thumbnail so the copy shows the video area, not a black box.
   const id = /\/embed\/([\w-]{6,})/.exec(o.src)?.[1];
@@ -112,7 +133,10 @@ function flattenIframe(o: HTMLIFrameElement, c: HTMLElement) {
   img.setAttribute("style", c.getAttribute("style") || "");
   Object.assign(img.style, { width: `${r.width}px`, height: `${r.height}px`, objectFit: "cover", display: "block", visibility: id ? "inherit" : "hidden", background: "#000" });
   c.replaceWith(img);
+  return img;
 }
+
+const record = (el: Element, r: DOMRect, solid: boolean) => geom.set(el, { t: r.top, b: r.bottom, w: r.width, h: r.height, solid });
 
 /** Walk original and copy in step, dropping what the nearest scroll container clips away. */
 function walk(o: Element, c: Element, clip: Box) {
@@ -120,8 +144,8 @@ function walk(o: Element, c: Element, clip: Box) {
   for (let i = 0; i < oc.length; i++) {
     const a = oc[i] as HTMLElement, b = cc[i] as HTMLElement | undefined;
     if (!b) continue;
-    if (a instanceof HTMLTextAreaElement) { flattenTextarea(a, b); continue; }
-    if (a instanceof HTMLIFrameElement) { flattenIframe(a, b); continue; }
+    if (a instanceof HTMLTextAreaElement) { record(flattenTextarea(a, b), a.getBoundingClientRect(), true); continue; }
+    if (a instanceof HTMLIFrameElement) { record(flattenIframe(a, b), a.getBoundingClientRect(), true); continue; }
     if (a instanceof HTMLVideoElement) { b.style.visibility = "hidden"; continue; }
     if (a instanceof HTMLImageElement && b instanceof HTMLImageElement) {
       // lazy copies inside clipped bands may never be considered "visible"; they are cached, so paint them now
@@ -129,16 +153,15 @@ function walk(o: Element, c: Element, clip: Box) {
       b.decoding = "sync";
     }
     const r = a.getBoundingClientRect();
+    const display = getComputedStyle(a).display;
+    const solid = !!(r.width || r.height) && display !== "inline" && display !== "contents" && a.scrollHeight <= a.clientHeight + 1 && a.scrollWidth <= a.clientWidth + 1;
     // Fully clipped by a scroll container (or outside the window): keep an empty box of the same size so
     // everything after it stays exactly where it was, but copy none of its content.
-    if ((r.width || r.height) && !overlaps(r, clip) && a.scrollHeight <= a.clientHeight + 1 && a.scrollWidth <= a.clientWidth + 1) {
-      const display = getComputedStyle(a).display;
-      if (display !== "inline" && display !== "contents") {
-        b.replaceChildren();
-        Object.assign(b.style, { width: `${r.width}px`, height: `${r.height}px`, minWidth: "0", minHeight: "0", flex: "none", visibility: "hidden" });
-        continue;
-      }
+    if (solid && !overlaps(r, clip)) {
+      hollow(b, r.width, r.height);
+      continue;
     }
+    record(b, r, solid);
     let inner = clip;
     if (a instanceof HTMLElement && scrolls(a)) {
       b.style.overflow = "hidden";
@@ -171,7 +194,9 @@ export function snapshotWindow(el: HTMLElement): HTMLElement | null {
   tpl.setAttribute("inert", "");
   walk(el, tpl, { l: r.left, t: r.top, r: r.right, b: r.bottom });
   tpl.querySelectorAll("[id]").forEach(n => n.removeAttribute("id"));
-  // visibility inherits: the copies stay hidden inside the hidden preparation overlay (the Dock thumbnail sets its own)
+  // invisible resize handles sit on top of the content: in a copy they only add overlap layers
+  tpl.querySelectorAll(".fx-rz").forEach(n => n.remove());
+  // visibility inherits from the overlay, so a hidden (minimized) window still copies as visible; the Dock thumbnail sets its own
   Object.assign(tpl.style, { position: "absolute", left: "0", top: "0", width: `${r.width}px`, height: `${r.height}px`, translate: "none", transform: "none", opacity: "1", visibility: "inherit", margin: "0", zIndex: "auto", pointerEvents: "none" });
   return tpl;
 }
@@ -183,17 +208,47 @@ export function fitThumb(thumb: HTMLElement, boxW: number, boxH: number) {
   Object.assign(thumb.style, { position: "absolute", left: `${(boxW - w * s) / 2}px`, top: `${(boxH - h * s) / 2}px`, transform: `scale(${s})`, transformOrigin: "0 0", visibility: "visible", opacity: "1", pointerEvents: "none" });
 }
 
+/**
+ * Copy of the template for one band: elements entirely above or below the band's strip become empty
+ * boxes of their exact size. Each band then styles, lays out and paints only what it can show (about
+ * 1/24 of the window) instead of a whole window, which keeps the build to a few cheap frames.
+ */
+export function cloneBand(src: Element, y0: number, y1: number): Element {
+  const c = src.cloneNode(false) as Element;
+  for (let n = src.firstChild; n; n = n.nextSibling) {
+    if (n.nodeType !== 1) {
+      c.appendChild(n.cloneNode(true));
+      continue;
+    }
+    const g = geom.get(n as Element);
+    if (g?.solid && (g.b <= y0 || g.t >= y1)) {
+      const h = (n as Element).cloneNode(false) as HTMLElement;
+      hollow(h, g.w, g.h);
+      c.appendChild(h);
+    } else c.appendChild(cloneBand(n as Element, y0, y1));
+  }
+  return c;
+}
+
 export type Genie = {
-  /** Run the effect towards (in) or out of the Dock slot. Hides the window as the first frame shows. */
-  play(slot: DOMRect, dir: "in" | "out", duration: number): Promise<void>;
+  /** Run the effect towards (in) or out of the Dock slot. The window is handed over to the copies in one frame. */
+  play(slot: DOMRect, dir: "in" | "out", duration: number, onLand?: () => void): Promise<void>;
   /** Drop the prepared bands without animating. */
   cancel(): void;
 };
 
 /**
- * Build the band copies off-screen (a few per frame) and resolve once they are laid out, so the
- * first animation frame has nothing left to do but composite. Start this before the Dock slot is
- * measured: the build overlaps with the Dock making room.
+ * Build the band copies (a few per frame) and resolve once they are laid out AND painted, so the first
+ * animation frame has nothing left to do but composite.
+ *
+ * Why the copies sit on screen at a ghost opacity instead of being hidden while they are prepared:
+ * browsers do not paint hidden layers. If the bands only became visible in the frame they start moving,
+ * Chrome composites the animation before its raster workers are done and draws the unpainted tiles as
+ * holes (the window breaks into strips with the wallpaper showing through), and Safari paints all of
+ * them inside that first frame (a hitch). At opacity 0.002 every band is painted during the warm-up
+ * frames while the screen stays pixel-identical; switching the overlay to opacity 1 later is a
+ * compositor-only change that reuses those tiles. Start this before the Dock slot is measured: the
+ * build overlaps with the Dock making room.
  */
 export async function prepareGenie(el: HTMLElement, tpl?: HTMLElement | null): Promise<Genie | null> {
   const r = el.getBoundingClientRect();
@@ -203,7 +258,7 @@ export async function prepareGenie(el: HTMLElement, tpl?: HTMLElement | null): P
   const N = Math.max(MIN_BANDS, Math.min(MAX_BANDS, Math.round(r.height / BAND_PX)));
   const overlay = document.createElement("div");
   overlay.setAttribute("aria-hidden", "true");
-  overlay.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:35;visibility:hidden;contain:layout style;";
+  overlay.style.cssText = `position:fixed;inset:0;pointer-events:none;z-index:35;opacity:${GHOST};contain:layout style;`;
   host.appendChild(overlay);
   // let the poster thumbnail decode (briefly) so the first frame shows it, not the black player background
   const pics = Array.from(t.querySelectorAll<HTMLImageElement>("img[data-genie-thumb]"));
@@ -212,27 +267,38 @@ export async function prepareGenie(el: HTMLElement, tpl?: HTMLElement | null): P
   const bands: HTMLElement[] = [];
   for (let i = 0; i < N; i++) {
     const b = document.createElement("div");
-    b.style.cssText = `position:absolute;left:${r.left}px;top:${r.top + i * sh}px;width:${r.width}px;height:${sh + OVERLAP}px;overflow:hidden;will-change:transform;transform-origin:0 0;contain:strict;`;
-    const clone = t.cloneNode(true) as HTMLElement;
+    b.style.cssText = `position:absolute;left:${r.left}px;top:${r.top + i * sh}px;width:${r.width}px;height:${sh + OVERLAP}px;overflow:hidden;will-change:transform,opacity;transform-origin:0 0;contain:strict;`;
+    // a margin either side so shadows and anti-aliased edges of boxes just outside the strip still paint
+    const clone = cloneBand(t, r.top + i * sh - BAND_MARGIN, r.top + (i + 1) * sh + OVERLAP + BAND_MARGIN) as HTMLElement;
     clone.style.top = `${-i * sh}px`;
     b.appendChild(clone);
     overlay.appendChild(b);
     bands.push(b);
-    // attached to the (hidden) overlay, so each frame lays out only its own few copies
+    // each frame lays out and paints only its own few copies
     if ((i + 1) % CHUNK === 0 && i < N - 1) await nextFrame();
   }
   if (decoded) await decoded;
   await nextFrame();
   let done = false;
-  const cancel = () => { done = true; overlay.remove(); };
+  const restoreEl = () => {
+    el.style.opacity = "";
+    el.style.pointerEvents = "";
+  };
+  const cancel = () => {
+    done = true;
+    overlay.remove();
+    restoreEl();
+  };
 
   return {
     cancel,
-    async play(slot, dir, duration) {
+    async play(slot, dir, duration, onLand) {
       if (done) return;
       const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
       const cxr = r.left + r.width / 2, cxs = slot.left + slot.width / 2;
       const anims: Animation[] = [];
+      // Arm: every keyframe is computed, parsed and applied (paused at its first frame) while the overlay
+      // is still a ghost, so the frame that starts the motion does no style, layout or paint work at all.
       for (let i = 0; i < N; i++) {
         const bandH = sh + OVERLAP;
         const u0 = i / N, u1 = (i + 1) / N + OVERLAP / r.height;
@@ -252,17 +318,38 @@ export async function prepareGenie(el: HTMLElement, tpl?: HTMLElement | null): P
           const [yt, lt, rt] = edge(u0), [yb, lb, rb] = edge(u1);
           const oy = r.top + i * sh;
           const m = quadMatrix(r.width, bandH, [[lt - r.left, yt - oy], [rt - r.left, yt - oy], [rb - r.left, yb - oy], [lb - r.left, yb - oy]]);
-          frames.push({ transform: m, offset: time, opacity: p > 0.94 ? lerp(1, 0, (p - 0.94) / 0.06) : 1 });
+          // never fully 0: a fully transparent layer may drop its painted tiles, a ghost one keeps them
+          frames.push({ transform: m, offset: time, opacity: p > 0.94 ? lerp(1, Number(GHOST), (p - 0.94) / 0.06) : 1 });
         }
-        anims.push(bands[i].animate(frames, { duration: reduce ? 1 : duration, easing: "linear", fill: "both" }));
+        const a = bands[i].animate(frames, { duration: reduce ? 1 : duration, easing: "linear", fill: "both" });
+        a.pause();
+        anims.push(a);
       }
-      // first frame: the copies take over from the real window in the same paint
-      overlay.style.visibility = "visible";
-      el.style.visibility = "hidden";
+      if (dir === "out") {
+        // the minimized window is visibility:hidden; make it paintable now (still invisible) so the end of
+        // the animation only has to fade it in on the compositor
+        el.style.opacity = "0";
+        el.style.pointerEvents = "none";
+        el.style.visibility = "";
+      }
+      // one frame for the armed (still invisible) state to be styled and committed
+      await nextFrame();
+      if (done) return;
+      // Start: in one frame the copies become fully visible, the real window turns transparent (opacity is a
+      // compositor change; visibility would repaint), and every band starts on the same timeline tick.
+      overlay.style.opacity = "1";
+      el.style.opacity = "0";
+      el.style.pointerEvents = "none";
+      for (const a of anims) a.play();
+      // the Dock thumbnail fades in while the last of the window pours into it, like macOS (no empty slot)
+      const land = onLand ? setTimeout(onLand, reduce ? 0 : duration * LAND_AT) : undefined;
       await Promise.all(anims.map(a => a.finished.then(() => undefined, () => undefined)));
-      if (dir === "out") el.style.visibility = "";
+      if (dir === "out") restoreEl();
+      else el.style.visibility = "hidden";
       // one more frame so the real window is painted before the copies go away (no blink)
       await nextFrame();
+      if (dir === "in") restoreEl();
+      if (land !== undefined) clearTimeout(land), onLand?.();
       cancel();
     },
   };
@@ -274,4 +361,65 @@ export async function prepareMinimize(el: HTMLElement): Promise<{ genie: Genie |
   if (!tpl) return { genie: null, thumb: null };
   const thumb = tpl.cloneNode(true) as HTMLElement;
   return { genie: await prepareGenie(el, tpl), thumb };
+}
+
+/*
+ * Speculative preparation. Building the copies takes a few frames; macOS starts the genie the instant
+ * you click. So the copies are built (as invisible ghosts) while the pointer rests on the minimize
+ * button or on the Dock thumbnail, and the click only has to start the motion. A preparation older
+ * than WARM_MS is thrown away so a changed window is never shown stale.
+ */
+const WARM_MS = 2500;
+type Minimized = { genie: Genie | null; thumb: HTMLElement | null };
+const warmIn = new WeakMap<HTMLElement, { at: number; p: Promise<Minimized> }>();
+const warmOut = new WeakMap<HTMLElement, { at: number; p: Promise<Genie | null> }>();
+
+export function warmGenie(el: HTMLElement | null, dir: "in" | "out") {
+  if (!el) return;
+  const map = dir === "in" ? warmIn : warmOut;
+  const w = map.get(el);
+  if (w && performance.now() - w.at < WARM_MS) return;
+  coolGenie(el, dir);
+  if (dir === "in") {
+    const entry = { at: performance.now(), p: prepareMinimize(el).catch(() => ({ genie: null, thumb: null })) };
+    warmIn.set(el, entry);
+    // never leave ghost copies behind (window closed by keyboard, pointer never left, …)
+    setTimeout(() => warmIn.get(el) === entry && coolGenie(el, "in"), WARM_MS + 100);
+  } else {
+    const entry = { at: performance.now(), p: prepareGenie(el).catch(() => null) };
+    warmOut.set(el, entry);
+    setTimeout(() => warmOut.get(el) === entry && coolGenie(el, "out"), WARM_MS + 100);
+  }
+}
+
+/** Pointer left without clicking: drop the ghost copies. */
+export function coolGenie(el: HTMLElement | null, dir: "in" | "out") {
+  if (!el) return;
+  if (dir === "in") {
+    const w = warmIn.get(el);
+    warmIn.delete(el);
+    void w?.p.then(r => r.genie?.cancel());
+  } else {
+    const w = warmOut.get(el);
+    warmOut.delete(el);
+    void w?.p.then(g => g?.cancel());
+  }
+}
+
+/** The minimize preparation: the warm one when it is fresh, otherwise a new one. */
+export function takeMinimize(el: HTMLElement): Promise<Minimized> {
+  const w = warmIn.get(el);
+  warmIn.delete(el);
+  if (w && performance.now() - w.at < WARM_MS) return w.p;
+  void w?.p.then(r => r.genie?.cancel());
+  return prepareMinimize(el);
+}
+
+/** The restore preparation: the warm one when it is fresh, otherwise a new one. */
+export function takeRestore(el: HTMLElement): Promise<Genie | null> {
+  const w = warmOut.get(el);
+  warmOut.delete(el);
+  if (w && performance.now() - w.at < WARM_MS) return w.p;
+  void w?.p.then(g => g?.cancel());
+  return prepareGenie(el);
 }

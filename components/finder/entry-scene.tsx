@@ -357,7 +357,7 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
         <div ref={frame} className="fx-window fx-ew-win" data-active="true" data-min={ew.min} data-zoomed={zoomed} style={style} role="dialog" aria-label={heading}>
           <div className="fx-traffic" data-nodrag>
             <button className="r" aria-label="Close" onClick={requestClose}><svg viewBox="0 0 12 12"><path d="m3.600 3.600 4.800 4.800m0-4.800-4.800 4.800" /></svg></button>
-            <button className="y" aria-label="Minimize" disabled={standalone} onClick={() => void ew.minimize()}><svg viewBox="0 0 12 12"><path d="M3 6h6" /></svg></button>
+            <button className="y" aria-label="Minimize" disabled={standalone} onClick={() => void ew.minimize()} onPointerEnter={e => e.pointerType === "mouse" && !standalone && !ew.min && ew.warm?.("in", true)} onPointerLeave={() => ew.warm?.("in", false)}><svg viewBox="0 0 12 12"><path d="M3 6h6" /></svg></button>
             <button className="g" aria-label="Zoom" onClick={toggleZoom}><svg viewBox="0 0 12 12"><path d="M3.500 8.500V4.600a1.100 1.100 0 0 1 1.100-1.100h3.900M8.500 3.500v3.900a1.100 1.100 0 0 1-1.100 1.100H3.500" /></svg></button>
           </div>
           <section className="fx-main fx-ew-panel">

@@ -1,5 +1,7 @@
 "use client";
 
+import { useIsDesktop } from "./client-env";
+
 import Link from "next/link";
 import { helloPaths } from "./hello-paths";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -9,12 +11,6 @@ import "./finder.css";
 import "./welcome.css";
 
 
-const query = "(min-width: 1024px) and (hover: hover) and (pointer: fine)";
-const subscribe = (cb: () => void) => {
-  const m = matchMedia(query);
-  m.addEventListener("change", cb);
-  return () => m.removeEventListener("change", cb);
-};
 
 // "hello" is written first, then these cycle (about 3.6s together with the writing).
 const greetings = ["नमस्ते", "Bonjour", "Hola", "こんにちは", "Ciao", "Hello"];
@@ -130,7 +126,7 @@ function Auth({ desktop, restricted }: { desktop: boolean; restricted: boolean }
 
 /** Opening "hello" sequence, then the macOS (desktop) or iOS (touch) sign-in screen. */
 export function Welcome({ intro = true, restricted = false }: { intro?: boolean; restricted?: boolean }) {
-  const desktop = useSyncExternalStore(subscribe, () => matchMedia(query).matches, () => null);
+  const desktop = useIsDesktop();
   const [showIntro, setShowIntro] = useState(() => intro && !introSeen());
   if (desktop === null) return <div className="fx wl-root wl-blank" />;
   return (

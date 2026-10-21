@@ -1,19 +1,15 @@
 "use client";
 
+import { useIsDesktop } from "./client-env";
+
 import "./finder.css";
-import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { useParams, usePathname } from "next/navigation";
 import { CalendarDays } from "lucide-react";
 
 import { getYouTubeThumbnail } from "@/lib/youtube";
 import { OPEN_DESKTOP, OPEN_SHEET, entryPreview, skeletonHandover } from "./entry-preview";
 
-const query = "(min-width: 1024px) and (hover: hover) and (pointer: fine)";
-const subscribe = (cb: () => void) => {
-  const m = matchMedia(query);
-  m.addEventListener("change", cb);
-  return () => m.removeEventListener("change", cb);
-};
 
 /**
  * Instant entry window while the server renders the real one (loading.tsx of the intercepted entry
@@ -21,7 +17,7 @@ const subscribe = (cb: () => void) => {
  * Finder's own data when it is the entry that was just opened.
  */
 export function EntrySkeleton({ mode }: { mode?: "new" | "view" }) {
-  const desktop = useSyncExternalStore(subscribe, () => matchMedia(query).matches, () => null);
+  const desktop = useIsDesktop();
   const frame = useRef<HTMLDivElement>(null);
   const params = useParams<{ entryId?: string }>();
   const path = usePathname();

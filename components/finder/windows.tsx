@@ -3,7 +3,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import { EntrySlot } from "./dock-entry";
-import { fitThumb, prepareGenie, snapshotWindow, type Genie } from "./genie";
+import { fitThumb, nextFrame, prepareGenie, prepareMinimize, type Genie } from "./genie";
 import { ResizeHandles, ZOOM_STYLE, flipZoom, startWindowDrag, type Geom } from "./window-geom";
 import { CalculatorIcon, FinderFace, NotesIcon, SettingsIcon } from "./icons";
 
@@ -17,12 +17,12 @@ export const APPS: Record<AppId, { name: string; w: number; h: number; icon: (s:
 };
 export const ORDER: AppId[] = ["finder", "notes", "calculator", "settings"];
 
-type Win = { open: boolean; min: boolean; zoomed: boolean; z: number; x: number; y: number; w?: number; h?: number };
-type Wins = Record<AppId, Win>;
+export type Win = { open: boolean; min: boolean; zoomed: boolean; z: number; x: number; y: number; w?: number; h?: number };
+export type Wins = Record<AppId, Win>;
 type Api = {
   close(): Promise<void>;
   /** Snapshot the window and build the genie copies (starts before the Dock slot exists). */
-  prepareMinimize(): Promise<{ genie: Genie; thumb: HTMLElement } | null>;
+  prepareMinimize(): Promise<{ genie: Genie | null; thumb: HTMLElement | null }>;
   /** Build the genie copies for the way back while the window is still hidden. */
   prepareRestore(): Promise<Genie | null>;
   /** Remember the current box so the zoom can animate from it. */
@@ -34,10 +34,9 @@ const base: Win = { open: false, min: false, zoomed: false, z: 1, x: 0, y: 0 };
 /** Window z-indexes stay below the genie overlay (35), the Dock (40) and the menu bar (50). */
 const Z_FLOOR = 11;
 const Z_CEIL = 30;
-const raf2 = () => new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
 
 /** Bring one window to the front; returns the same object when it already is (React then skips the render). */
-function raise(w: Wins, id: AppId): Wins {
+export function raise(w: Wins, id: AppId): Wins {
   const top = Math.max(...ORDER.map(a => w[a].z));
   if (w[id].z === top && ORDER.every(a => a === id || w[a].z < top)) return w;
   const next: Wins = { ...w, [id]: { ...w[id], z: top + 1 } };
@@ -62,6 +61,8 @@ export function useWindowManager() {
   // Latest window state for event handlers, so every callback below is created once and stays stable.
   const live = useRef(wins);
   const busy = useRef(new Set<AppId>());
+  /** Dock clicks that arrived while that window was still minimizing: restored as soon as it lands. */
+  const queued = useRef(new Set<AppId>());
   const bounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(bounceTimer.current), []);
 
@@ -76,18 +77,26 @@ export function useWindowManager() {
 
   const restore = useCallback(
     async (id: AppId) => {
-      if (busy.current.has(id)) return;
+      if (busy.current.has(id)) {
+        // only a minimize in flight is worth waiting for; a click during a restore is a duplicate
+        if (live.current[id].min) queued.current.add(id);
+        return;
+      }
       busy.current.add(id);
       const api = apis.current[id];
-      const slot = slots.current[id]?.getBoundingClientRect();
-      // build the copies while the window is still minimized, then swap state and animate in the same frame
-      const g = slot && api ? await api.prepareRestore() : null;
-      update(w => raise({ ...w, [id]: { ...w[id], min: false } }, id));
-      setFront(id);
-      setThumbs(t => ({ ...t, [id]: undefined }));
-      if (g && slot) await g.play(slot, "out", 560);
-      else api?.setHidden(false);
-      busy.current.delete(id);
+      try {
+        const slot = slots.current[id]?.getBoundingClientRect();
+        // build the copies while the window is still minimized, then swap state and animate in the same frame
+        const g = slot && api ? await api.prepareRestore().catch(() => null) : null;
+        update(w => raise({ ...w, [id]: { ...w[id], min: false } }, id));
+        setFront(id);
+        setThumbs(t => ({ ...t, [id]: undefined }));
+        if (g && slot) await g.play(slot, "out", 560);
+      } finally {
+        // never leave the window invisible or locked, whatever happened above
+        api?.setHidden(false);
+        busy.current.delete(id);
+      }
     },
     [update]
   );
@@ -123,23 +132,25 @@ export function useWindowManager() {
       if (w.min || !w.open || busy.current.has(id)) return;
       busy.current.add(id);
       const api = apis.current[id];
-      // snapshot now (before React touches the window) and build while the Dock makes room
-      const prepared = api?.prepareMinimize() ?? Promise.resolve(null);
-      patch(id, { min: true });
-      await raf2();
-      const p = await prepared;
-      const slot = slots.current[id]?.getBoundingClientRect();
-      if (p && slot) {
-        await p.genie.play(slot, "in", 620);
-        setThumbs(t => ({ ...t, [id]: p.thumb }));
-      } else {
-        p?.genie.cancel();
+      try {
+        // snapshot now (before React touches the window) and build while the Dock makes room
+        const prepared = (api?.prepareMinimize() ?? Promise.resolve({ genie: null, thumb: null })).catch(() => ({ genie: null, thumb: null }));
+        patch(id, { min: true });
+        await nextFrame();
+        await nextFrame();
+        const { genie, thumb } = await prepared;
+        const slot = slots.current[id]?.getBoundingClientRect();
+        if (genie && slot) await genie.play(slot, "in", 620);
+        else genie?.cancel();
+        if (thumb) setThumbs(t => ({ ...t, [id]: thumb }));
+        setFront(f => (f === id ? nextFront(id) : f));
+      } finally {
         api?.setHidden(true);
+        busy.current.delete(id);
       }
-      setFront(f => (f === id ? nextFront(id) : f));
-      busy.current.delete(id);
+      if (queued.current.delete(id)) void restore(id);
     },
-    [patch]
+    [patch, restore]
   );
 
   const setGeom = useCallback((id: AppId, g: Geom) => patch(id, g), [patch]);
@@ -188,12 +199,7 @@ export function AppWindow({ id, wm, className, children }: { id: AppId; wm: WM; 
         if (el) await finished(el.animate([{ transform: "scale(1)", opacity: 1 }, { transform: "scale(0.94)", opacity: 0 }], { duration: 200, easing: EASE_IN, fill: "forwards" }));
       },
       async prepareMinimize() {
-        const el = ref.current;
-        const tpl = el && snapshotWindow(el);
-        if (!el || !tpl) return null;
-        const thumb = tpl.cloneNode(true) as HTMLElement;
-        const genie = await prepareGenie(el, tpl);
-        return genie ? { genie, thumb } : null;
+        return ref.current ? prepareMinimize(ref.current) : { genie: null, thumb: null };
       },
       async prepareRestore() {
         const el = ref.current;
@@ -289,19 +295,13 @@ function DockView({ wm }: { wm: WM }) {
     const c = cur.current, g = tgt.current;
     const dt = Math.min(0.05, c.t ? (now - c.t) / 1000 : 0.016);
     c.t = now;
-    c.x += (g.x - c.x) * (1 - Math.exp(-dt * 22));
-    c.k += ((g.on ? 1 : 0) - c.k) * (1 - Math.exp(-dt * 14));
     const targetK = g.on ? 1 : 0;
-    if (Math.abs(targetK - c.k) < 0.003 && Math.abs(g.x - c.x) < 0.1) {
-      c.x = g.x;
-      c.k = targetK;
-      c.t = 0;
-      raf.current = 0;
-      paint(c.x, c.k);
-      return;
-    }
+    c.x += (g.x - c.x) * (1 - Math.exp(-dt * 22));
+    c.k += (targetK - c.k) * (1 - Math.exp(-dt * 14));
+    const done = Math.abs(targetK - c.k) < 0.003 && Math.abs(g.x - c.x) < 0.1;
+    if (done) (c.x = g.x), (c.k = targetK), (c.t = 0);
     paint(c.x, c.k);
-    raf.current = requestAnimationFrame(tick);
+    raf.current = done ? 0 : requestAnimationFrame(tick);
   };
   const aim = (x: number, on: boolean) => {
     if (on && !tgt.current.on && cur.current.k < 0.003) cur.current.x = x;

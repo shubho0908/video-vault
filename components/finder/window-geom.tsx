@@ -78,16 +78,15 @@ export function clampDrag(r0: DOMRect, dx: number, dy: number): [number, number]
 /**
  * Move a window by its title bar. The position is written straight to the element's `translate`
  * on every pointermove (no React render per frame) and committed once when the drag ends.
- * Returns false when the press should not start a drag.
  */
 export function startWindowDrag(
   e: React.PointerEvent,
   win: HTMLElement | null,
   from: { x: number; y: number },
   commit: (p: { x: number; y: number }) => void
-): boolean {
+) {
   const handle = e.currentTarget as HTMLElement;
-  if (!win || e.button !== 0) return false;
+  if (!win || e.button !== 0) return;
   handle.setPointerCapture(e.pointerId);
   const r0 = win.getBoundingClientRect();
   const sx = e.clientX, sy = e.clientY;
@@ -109,7 +108,6 @@ export function startWindowDrag(
   handle.addEventListener("pointerup", up);
   handle.addEventListener("pointercancel", up);
   handle.addEventListener("lostpointercapture", up);
-  return true;
 }
 
 /** CSS cubic-bezier(x1,y1,x2,y2) as a function of time. */
@@ -141,6 +139,8 @@ export function flipZoom(el: HTMLElement | null, from: DOMRect | null | undefine
   if (!el || !from) return;
   const kids = (Array.from(el.children) as HTMLElement[]).filter(k => !k.classList.contains("fx-rz"));
   for (const n of [el, ...kids]) for (const a of n.getAnimations()) if (a.id === FLIP_ID) a.cancel();
+  // an open pop still running would make the target box look smaller than it is: jump it to its end first
+  for (const a of el.getAnimations()) if (a.id !== FLIP_ID && a.playState === "running") a.finish();
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const to = el.getBoundingClientRect();
   if (!to.width || !to.height || !from.width || !from.height) return;

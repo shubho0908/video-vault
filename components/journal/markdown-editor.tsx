@@ -469,9 +469,11 @@ export function MarkdownEditor({
     const extendsTypingStep =
       typing &&
       history.typingSince > 0 &&
-      now - history.typingSince < TYPING_STEP_MS &&
-      inserts === history.typingInserts &&
-      !(inserts && nextValue.charCodeAt(nextSelection.start - 1) === 10);
+      // an IME composition (romaji/pinyin -> converted text) is one undo step however long it takes
+      (composingRef.current ||
+        (now - history.typingSince < TYPING_STEP_MS &&
+          inserts === history.typingInserts &&
+          !(inserts && nextValue.charCodeAt(nextSelection.start - 1) === 10)));
     if (!extendsTypingStep) {
       history.undo.push({
         value: history.current,
@@ -500,7 +502,12 @@ export function MarkdownEditor({
       start: event.target.selectionStart,
       end: event.target.selectionEnd,
     };
+    // a paste or drop is its own undo step, never merged with the typing around it
+    const inputType = (event.nativeEvent as InputEvent).inputType ?? "";
+    const pasted = inputType === "insertFromPaste" || inputType === "insertFromDrop";
+    if (pasted) historyRef.current.typingSince = 0;
     commit(event.target.value, nextSelection, true);
+    if (pasted) historyRef.current.typingSince = 0;
 
     const line = currentLine(event.target.value, nextSelection.start).value;
     const match = /^\/([^\n]*)$/.exec(line);

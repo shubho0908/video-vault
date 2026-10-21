@@ -1,12 +1,14 @@
 "use client";
 
+import { useIsDesktop, whenIdle } from "./client-env";
+
 import "./finder.css";
 import { useEntryWindow } from "./entry-window";
 import { ResizeHandles, ZOOM_STYLE, flipZoom, startWindowDrag } from "./window-geom";
 import { OPEN_DESKTOP, OPEN_SHEET, skeletonHandover } from "./entry-preview";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as RPointerEvent } from "react";
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from "react";
 import { CalendarDays, LoaderCircle, Pencil, Trash2, Video } from "lucide-react";
 
 import { deleteEntryAction, saveEntryAction } from "@/app/actions";
@@ -19,12 +21,6 @@ import { VideoEmbed } from "./video-embed";
 export type SceneImage = { id: string; filePath: string; altText: string | null; width: number | null; height: number | null; signedUrl: string };
 export type SceneMode = "new" | "view" | "edit";
 
-const query = "(min-width: 1024px) and (hover: hover) and (pointer: fine)";
-const subscribe = (cb: () => void) => {
-  const m = matchMedia(query);
-  m.addEventListener("change", cb);
-  return () => m.removeEventListener("change", cb);
-};
 const EASE_IN = "cubic-bezier(.4,0,1,1)";
 const DRAFT = "vv-entry-draft";
 const SHEET_EASE = "cubic-bezier(.32,.72,0,1)";
@@ -35,15 +31,6 @@ const loadEditor = () => import("@/components/journal/markdown-editor");
 const loadImages = () => import("@/components/journal/image-panel");
 const MarkdownEditor = lazy(() => loadEditor().then(m => ({ default: m.MarkdownEditor })));
 const ImagePanel = lazy(() => loadImages().then(m => ({ default: m.ImagePanel })));
-const whenIdle = (fn: () => void) => {
-  const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
-  if (w.requestIdleCallback) {
-    const id = w.requestIdleCallback(fn, { timeout: 2000 });
-    return () => w.cancelIdleCallback?.(id);
-  }
-  const t = setTimeout(fn, 800);
-  return () => clearTimeout(t);
-};
 
 const dateFormat = new Intl.DateTimeFormat("en", { month: "long", day: "numeric", year: "numeric" });
 
@@ -51,7 +38,7 @@ type Values = { title: string; youtubeUrl: string; topic: string; notesMarkdown:
 
 export function EntryScene({ mode: initialMode, entry, images, standalone }: { mode: SceneMode; entry?: JournalEntry; images: SceneImage[]; standalone: boolean }) {
   const router = useRouter();
-  const desktop = useSyncExternalStore(subscribe, () => matchMedia(query).matches, () => null);
+  const desktop = useIsDesktop();
   const [mode, setMode] = useState<SceneMode>(initialMode);
   const [values, setValues] = useState<Values>(() => {
     if (!entry && initialMode === "new") {
@@ -91,12 +78,11 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
     if (!el || desktop === null) return;
     const ran = skeletonHandover.take(desktop);
     const [kf, opts] = desktop ? OPEN_DESKTOP : OPEN_SHEET;
+    // the iOS backdrop continues its fade too (or stays fully shown when the skeleton already finished it)
+    if (ran !== null && backRef.current) backRef.current.style.animationDelay = `-${ran}ms`;
     if (ran !== null && ran >= Number(opts.duration)) return;
     const a = el.animate(kf, opts);
-    if (ran !== null) {
-      a.currentTime = ran;
-      if (backRef.current) backRef.current.style.animationDelay = `-${ran}ms`;
-    }
+    if (ran !== null) a.currentTime = ran;
   }, [desktop]);
 
   useLayoutEffect(() => {

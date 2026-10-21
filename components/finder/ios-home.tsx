@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTheme } from "next-themes";
 import { WallLayer } from "./wall-layer";
 import { WallPicker } from "./wall-picker";
@@ -118,10 +118,9 @@ export function IosHome({ lib, userName }: { lib: Lib; userName: string }) {
     ? { transform: `translate(${r.left + r.width / 2 - innerWidth / 2}px, ${r.top + r.height / 2 - innerHeight / 2}px) scale(${r.width / innerWidth}, ${r.height / innerHeight})`, borderRadius: 14 / (r.width / innerWidth), opacity: phase === "closing" ? 0 : 1 }
     : { transform: "none", borderRadius: 0, opacity: 1 };
 
-  const today = useMemo(() => {
-    const d = new Date();
-    return { weekday: d.toLocaleDateString(undefined, { weekday: "long" }).toUpperCase(), day: d.getDate(), month: d.toLocaleDateString(undefined, { month: "long", year: "numeric" }) };
-  }, []);
+  // recomputed on every (rare) render, as before, so the widget follows the date across midnight
+  const d = new Date();
+  const today = { weekday: d.toLocaleDateString(undefined, { weekday: "long" }).toUpperCase(), day: d.getDate(), month: d.toLocaleDateString(undefined, { month: "long", year: "numeric" }) };
   const DECOR = ["photos", "safari", "maps", "music", "books", "app-store", "home", "find-my"];
   const decor = (id: string) => (
     <div key={id} className="fx-ios-icon" aria-hidden>

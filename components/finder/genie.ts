@@ -28,7 +28,7 @@ const MAX_BANDS = 24;
 const ease = (x: number) => x * x * (3 - 2 * x);
 const clamp01 = (x: number) => Math.min(Math.max(x, 0), 1);
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const nextFrame = () => new Promise<void>(res => requestAnimationFrame(() => res()));
+export const nextFrame = () => new Promise<void>(res => requestAnimationFrame(() => res()));
 
 /** progress of band t (0 top .. 1 bottom) when the whole effect is at p */
 const band = (t: number, p: number) => clamp01(p * (1 + LAG) - (1 - t) * LAG);
@@ -110,7 +110,7 @@ function flattenIframe(o: HTMLIFrameElement, c: HTMLElement) {
   img.dataset.genieThumb = "1";
   img.className = c.className;
   img.setAttribute("style", c.getAttribute("style") || "");
-  Object.assign(img.style, { width: `${r.width}px`, height: `${r.height}px`, objectFit: "cover", display: "block", visibility: id ? "visible" : "hidden", background: "#000" });
+  Object.assign(img.style, { width: `${r.width}px`, height: `${r.height}px`, objectFit: "cover", display: "block", visibility: id ? "inherit" : "hidden", background: "#000" });
   c.replaceWith(img);
 }
 
@@ -129,10 +129,15 @@ function walk(o: Element, c: Element, clip: Box) {
       b.decoding = "sync";
     }
     const r = a.getBoundingClientRect();
-    // fully clipped by a scroll container (or outside the window): no need to copy it at all
+    // Fully clipped by a scroll container (or outside the window): keep an empty box of the same size so
+    // everything after it stays exactly where it was, but copy none of its content.
     if ((r.width || r.height) && !overlaps(r, clip) && a.scrollHeight <= a.clientHeight + 1 && a.scrollWidth <= a.clientWidth + 1) {
-      b.remove();
-      continue;
+      const display = getComputedStyle(a).display;
+      if (display !== "inline" && display !== "contents") {
+        b.replaceChildren();
+        Object.assign(b.style, { width: `${r.width}px`, height: `${r.height}px`, minWidth: "0", minHeight: "0", flex: "none", visibility: "hidden" });
+        continue;
+      }
     }
     let inner = clip;
     if (a instanceof HTMLElement && scrolls(a)) {
@@ -166,7 +171,8 @@ export function snapshotWindow(el: HTMLElement): HTMLElement | null {
   tpl.setAttribute("inert", "");
   walk(el, tpl, { l: r.left, t: r.top, r: r.right, b: r.bottom });
   tpl.querySelectorAll("[id]").forEach(n => n.removeAttribute("id"));
-  Object.assign(tpl.style, { position: "absolute", left: "0", top: "0", width: `${r.width}px`, height: `${r.height}px`, translate: "none", transform: "none", opacity: "1", visibility: "visible", margin: "0", zIndex: "auto", pointerEvents: "none" });
+  // visibility inherits: the copies stay hidden inside the hidden preparation overlay (the Dock thumbnail sets its own)
+  Object.assign(tpl.style, { position: "absolute", left: "0", top: "0", width: `${r.width}px`, height: `${r.height}px`, translate: "none", transform: "none", opacity: "1", visibility: "inherit", margin: "0", zIndex: "auto", pointerEvents: "none" });
   return tpl;
 }
 
@@ -262,9 +268,10 @@ export async function prepareGenie(el: HTMLElement, tpl?: HTMLElement | null): P
   };
 }
 
-/** One-shot helper: prepare and play. */
-export async function genie(el: HTMLElement, slot: DOMRect, dir: "in" | "out", duration: number, tpl?: HTMLElement | null): Promise<void> {
-  const g = await prepareGenie(el, tpl);
-  if (g) await g.play(slot, dir, duration);
-  else if (dir === "out") el.style.visibility = "";
+/** Minimize step 1: snapshot (also the Dock thumbnail) and build the genie copies. */
+export async function prepareMinimize(el: HTMLElement): Promise<{ genie: Genie | null; thumb: HTMLElement | null }> {
+  const tpl = snapshotWindow(el);
+  if (!tpl) return { genie: null, thumb: null };
+  const thumb = tpl.cloneNode(true) as HTMLElement;
+  return { genie: await prepareGenie(el, tpl), thumb };
 }

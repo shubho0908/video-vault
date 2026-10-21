@@ -41,7 +41,7 @@ export async function saveEntryAction(
   input: unknown
 ): Promise<ActionResult> {
   try {
-    const session = await requireOwner();
+    const session = await requireOwner({ fresh: true });
     const values = entryInputSchema.parse(input);
     const entry = entryId
       ? await updateEntry(session.user.id, entryId, values)
@@ -62,7 +62,7 @@ export async function deleteEntryAction(
   entryId: string
 ): Promise<ActionResult> {
   try {
-    const session = await requireOwner();
+    const session = await requireOwner({ fresh: true });
     const images = await deleteEntry(session.user.id, entryId);
     await Promise.all(
       images.map(image =>
@@ -81,7 +81,7 @@ export async function deleteEntryAction(
 
 export async function attachImageAction(input: unknown): Promise<ActionResult> {
   try {
-    const session = await requireOwner();
+    const session = await requireOwner({ fresh: true });
     const values = imageInputSchema.parse(input);
     const image = await addEntryImage(session.user.id, values);
     updateTag(entryTag(session.user.id, image.entryId));
@@ -101,7 +101,7 @@ export async function deleteEntryImageAction(
   imageId: string
 ): Promise<ActionResult> {
   try {
-    const session = await requireOwner();
+    const session = await requireOwner({ fresh: true });
     const image = await deleteEntryImage(session.user.id, imageId);
     await removeImageKitAsset(image.fileId).catch(() => undefined);
     updateTag(entryTag(session.user.id, image.entryId));
@@ -118,7 +118,7 @@ export async function savePlaylistAction(
   input: unknown
 ): Promise<ActionResult> {
   try {
-    const session = await requireOwner();
+    const session = await requireOwner({ fresh: true });
     const values = playlistInputSchema.parse(input);
     const playlist = playlistId
       ? await updatePlaylist(session.user.id, playlistId, values)
@@ -137,7 +137,7 @@ export async function deletePlaylistAction(
   playlistId: string
 ): Promise<ActionResult> {
   try {
-    const session = await requireOwner();
+    const session = await requireOwner({ fresh: true });
     await deletePlaylist(session.user.id, playlistId);
     updateTag(ownerPlaylistsTag(session.user.id));
     updateTag(playlistTag(session.user.id, playlistId));
@@ -158,7 +158,7 @@ export async function renameFolderAction(
   name: string
 ): Promise<ActionResult> {
   try {
-    const session = await requireOwner();
+    const session = await requireOwner({ fresh: true });
     await renamePlaylist(session.user.id, playlistId, name);
     updateTag(ownerPlaylistsTag(session.user.id));
     updateTag(playlistTag(session.user.id, playlistId));
@@ -175,7 +175,7 @@ export async function placeEntryAction(input: {
   toId: string | null;
 }): Promise<ActionResult> {
   try {
-    const session = await requireOwner();
+    const session = await requireOwner({ fresh: true });
     await placeEntry(session.user.id, input);
     for (const id of [input.fromId, input.toId])
       if (id) updateTag(playlistTag(session.user.id, id));

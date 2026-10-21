@@ -57,7 +57,7 @@ export function useEntryWindow(frame: RefObject<HTMLDivElement | null>, pos: Ref
       // the slot is still growing: aim at the box it grows into
       const slot = entryDock.get()?.slotRect ?? entryDock.get()?.slot?.getBoundingClientRect();
       const land = () => thumb && entryDock.get()?.thumb !== thumb && entryDock.setThumb(thumb);
-      if (g && slot) await g.play(slot, "in", 620, land);
+      if (g && slot) await g.play(slot, "in", 620, land, () => entryDock.get()?.slot ?? null);
       else g?.cancel();
       land();
     } finally {

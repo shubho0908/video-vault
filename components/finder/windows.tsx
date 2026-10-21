@@ -3,7 +3,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import { EntrySlot } from "./dock-entry";
-import { coolGenie, fitThumb, nextFrame, takeMinimize, takeRestore, warmGenie, type Genie } from "./genie";
+import { coolGenie, fitThumb, nextFrame, retargetGenies, settledRect, takeMinimize, takeRestore, warmGenie, type Genie } from "./genie";
 import { ResizeHandles, ZOOM_STYLE, flipZoom, startWindowDrag, type Geom } from "./window-geom";
 import { CalculatorIcon, FinderFace, NotesIcon, SettingsIcon } from "./icons";
 
@@ -63,7 +63,15 @@ export function useWindowManager() {
    * and shrink away after the window is back out (like macOS) instead of popping in and out.
    */
   const [docked, setDocked] = useState<Partial<Record<AppId, "in" | "out">>>({});
-  const dock = useCallback((id: AppId, v: "in" | "out" | undefined) => setDocked(d => (d[id] === v ? d : { ...d, [id]: v })), []);
+  // key order is Dock order: a newly minimized window is appended at the right end, like macOS
+  const dock = useCallback((id: AppId, v: "in" | "out" | undefined) =>
+    setDocked(d => {
+      if (d[id] === v) return d;
+      if (v) return { ...d, [id]: v };
+      const { [id]: _gone, ...rest } = d;
+      void _gone;
+      return rest;
+    }), []);
   const undock = useCallback((id: AppId) => dock(id, undefined), [dock]);
   /** Final slot box, measured when the slot mounts (before it animates its width). */
   const slotRects = useRef<Partial<Record<AppId, DOMRect>>>({});
@@ -157,7 +165,7 @@ export function useWindowManager() {
         // the slot is still growing: aim at the box it grows into, not its current one
         const slot = slotRects.current[id] ?? slots.current[id]?.getBoundingClientRect();
         const land = () => thumb && setThumbs(t => (t[id] === thumb ? t : { ...t, [id]: thumb }));
-        if (genie && slot) await genie.play(slot, "in", 620, land);
+        if (genie && slot) await genie.play(slot, "in", 620, land, () => slots.current[id] ?? null);
         else genie?.cancel();
         land();
         setFront(f => (f === id ? nextFront(id) : f));
@@ -313,7 +321,7 @@ function DockView({ wm }: { wm: WM }) {
   const items = useRef<(HTMLDivElement | null)[]>([]);
   const row = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<string | null>(null);
-  const minimized = ORDER.filter(id => wm.docked[id]);
+  const minimized = (Object.keys(wm.docked) as AppId[]).filter(id => wm.docked[id]);
 
   const paint = (x: number, k: number) => {
     items.current.forEach((el, i) => {
@@ -418,9 +426,12 @@ function Slot({ id, wm, leaving }: { id: AppId; wm: WM; leaving: boolean }) {
   useLayoutEffect(() => {
     const el = item.current;
     if (!el || !box.current) return;
-    slotRects.current[id] = box.current.getBoundingClientRect();
+    // the final box, even if another slot is still growing or shrinking next to it
+    slotRects.current[id] = settledRect(box.current);
     if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
       el.animate([{ width: "0px", marginLeft: `-${DOCK_GAP}px` }, { width: `${tw}px`, marginLeft: "0px" }], { duration: 280, easing: SLOT_EASE });
+    // the centred Dock just grew: genies still flying to other slots follow them
+    retargetGenies();
     return () => void delete slotRects.current[id];
   }, [id, tw, slotRects]);
 
@@ -432,6 +443,7 @@ function Slot({ id, wm, leaving }: { id: AppId; wm: WM; leaving: boolean }) {
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const a = el.animate([{ width: `${tw}px`, marginLeft: "0px" }, { width: "0px", marginLeft: `-${DOCK_GAP}px` }], { duration: reduce ? 1 : 240, easing: SLOT_EASE, fill: "forwards" });
     a.finished.then(() => undock(id), () => undefined);
+    retargetGenies();
     return () => a.cancel();
   }, [leaving, id, tw, undock]);
 

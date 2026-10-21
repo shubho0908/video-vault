@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
 
-import { cloneBand, snapshotWindow } from "@/components/finder/genie";
+import { cloneBand, coolGenie, snapshotWindow, takeMinimize, warmGenie } from "@/components/finder/genie";
+import { vi } from "vitest";
 import { ORDER, raise, type Win, type Wins } from "@/components/finder/windows";
 
 const win = (z: number, open = true): Win => ({ open, min: false, zoomed: false, z, x: 0, y: 0 });
@@ -101,5 +102,35 @@ describe("cloneBand", () => {
     expect(rows[9].textContent).toBe("");
     // the template itself is untouched (it is also the Dock thumbnail)
     expect(tpl.textContent).toContain("row 9");
+  });
+});
+
+describe("warm genie", () => {
+  it("drops a prepared copy when the window changes (typing, DOM edits), so the click never shows stale content", async () => {
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => setTimeout(() => cb(performance.now()), 0));
+    Element.prototype.getBoundingClientRect = function () {
+      return { left: 0, top: 0, width: 300, height: 200, right: 300, bottom: 200, x: 0, y: 0, toJSON() {} } as DOMRect;
+    };
+    const host = document.createElement("div");
+    const el = document.createElement("div");
+    const ta = document.createElement("textarea");
+    el.append(ta);
+    host.append(el);
+    document.body.append(host);
+
+    warmGenie(el, "in");
+    const warm = takeMinimize(el);
+    expect(takeMinimize(el)).not.toBe(warm); // taken once: a second take builds anew
+
+    warmGenie(el, "in");
+    ta.value = "typed after hover";
+    ta.dispatchEvent(new Event("input", { bubbles: true }));
+    const after = takeMinimize(el);
+    const { thumb } = await after;
+    // rebuilt from the current window: the flattened textarea carries the new text
+    expect(thumb?.textContent).toContain("typed after hover");
+    coolGenie(el, "in");
+    await new Promise(r => setTimeout(r, 50));
+    vi.unstubAllGlobals();
   });
 });

@@ -230,9 +230,34 @@ export function cloneBand(src: Element, y0: number, y1: number): Element {
   return c;
 }
 
+/** Genies on their way into the Dock, so they can follow their slot if the centred Dock moves. */
+type Flight = { overlay: HTMLElement; slotEl: () => HTMLElement | null; cx: number; end: number; dx: number };
+const flying = new Set<Flight>();
+
+/**
+ * The Dock is centred, so a slot appearing or leaving moves every other slot. A genie already in flight
+ * aims at where its slot was; shift it (the whole overlay, on the compositor) to where its slot settles,
+ * over the time it has left, so it still lands exactly in its thumbnail.
+ */
+export function retargetGenies() {
+  const now = performance.now();
+  for (const f of flying) {
+    const el = f.slotEl();
+    const remaining = f.end - now;
+    if (!el?.isConnected || remaining < 16) continue;
+    const r = settledRect(el);
+    const dx = r.left + r.width / 2 - f.cx;
+    if (Math.abs(dx - f.dx) < 0.5) continue;
+    const from = getComputedStyle(f.overlay).transform;
+    for (const a of f.overlay.getAnimations()) a.cancel();
+    f.dx = dx;
+    f.overlay.animate([{ transform: from === "none" ? "translateX(0px)" : from }, { transform: `translateX(${dx}px)` }], { duration: remaining, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
+  }
+}
+
 export type Genie = {
   /** Run the effect towards (in) or out of the Dock slot. The window is handed over to the copies in one frame. */
-  play(slot: DOMRect, dir: "in" | "out", duration: number, onLand?: () => void): Promise<void>;
+  play(slot: DOMRect, dir: "in" | "out", duration: number, onLand?: () => void, slotEl?: () => HTMLElement | null): Promise<void>;
   /** Drop the prepared bands without animating. */
   cancel(): void;
 };
@@ -292,8 +317,14 @@ export async function prepareGenie(el: HTMLElement, tpl?: HTMLElement | null): P
 
   return {
     cancel,
-    async play(slot, dir, duration, onLand) {
+    async play(target, dir, duration, onLand, slotEl) {
       if (done) return;
+      // aim at where the slot is now (settled), not where it was when the minimize began
+      const live = dir === "in" ? slotEl?.() : null;
+      const slot = live?.isConnected ? settledRect(live) : target;
+      // follow the slot from now on (a neighbour may appear before the first frame of motion)
+      const flight: Flight | null = dir === "in" && slotEl ? { overlay, slotEl, cx: slot.left + slot.width / 2, end: performance.now() + duration, dx: 0 } : null;
+      if (flight) flying.add(flight);
       const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
       const cxr = r.left + r.width / 2, cxs = slot.left + slot.width / 2;
       const anims: Animation[] = [];
@@ -334,12 +365,16 @@ export async function prepareGenie(el: HTMLElement, tpl?: HTMLElement | null): P
       }
       // one frame for the armed (still invisible) state to be styled and committed
       await nextFrame();
-      if (done) return;
+      if (done) {
+        if (flight) flying.delete(flight);
+        return;
+      }
       // Start: in one frame the copies become fully visible, the real window turns transparent (opacity is a
       // compositor change; visibility would repaint), and every band starts on the same timeline tick.
       overlay.style.opacity = "1";
       el.style.opacity = "0";
       el.style.pointerEvents = "none";
+      if (flight) flight.end = performance.now() + duration;
       for (const a of anims) a.play();
       // the Dock thumbnail fades in while the last of the window pours into it, like macOS (no empty slot)
       const land = onLand ? setTimeout(onLand, reduce ? 0 : duration * LAND_AT) : undefined;
@@ -350,6 +385,7 @@ export async function prepareGenie(el: HTMLElement, tpl?: HTMLElement | null): P
       await nextFrame();
       if (dir === "in") restoreEl();
       if (land !== undefined) clearTimeout(land), onLand?.();
+      if (flight) flying.delete(flight);
       cancel();
     },
   };
@@ -371,8 +407,25 @@ export async function prepareMinimize(el: HTMLElement): Promise<{ genie: Genie |
  */
 const WARM_MS = 2500;
 type Minimized = { genie: Genie | null; thumb: HTMLElement | null };
-const warmIn = new WeakMap<HTMLElement, { at: number; p: Promise<Minimized> }>();
-const warmOut = new WeakMap<HTMLElement, { at: number; p: Promise<Genie | null> }>();
+type Warm<T> = { at: number; p: Promise<T>; stop: () => void };
+const warmIn = new WeakMap<HTMLElement, Warm<Minimized>>();
+const warmOut = new WeakMap<HTMLElement, Warm<Genie | null>>();
+
+/**
+ * A prepared copy is only valid while the window looks the same: any DOM change, typing (a textarea's
+ * value is not a DOM mutation) or scrolling inside it drops the copy, and the click then builds a fresh one.
+ */
+function watch(el: HTMLElement, onChange: () => void): () => void {
+  const mo = new MutationObserver(onChange);
+  mo.observe(el, { subtree: true, childList: true, characterData: true, attributes: true });
+  el.addEventListener("input", onChange, true);
+  el.addEventListener("scroll", onChange, true);
+  return () => {
+    mo.disconnect();
+    el.removeEventListener("input", onChange, true);
+    el.removeEventListener("scroll", onChange, true);
+  };
+}
 
 export function warmGenie(el: HTMLElement | null, dir: "in" | "out") {
   if (!el) return;
@@ -380,15 +433,21 @@ export function warmGenie(el: HTMLElement | null, dir: "in" | "out") {
   const w = map.get(el);
   if (w && performance.now() - w.at < WARM_MS) return;
   coolGenie(el, dir);
+  // never leave ghost copies behind: expire (window closed by keyboard, pointer never left, …) or on any change
   if (dir === "in") {
-    const entry = { at: performance.now(), p: prepareMinimize(el).catch(() => ({ genie: null, thumb: null })) };
+    const entry: Warm<Minimized> = { at: performance.now(), p: prepareMinimize(el).catch(() => ({ genie: null, thumb: null })), stop: () => undefined };
+    const drop = () => warmIn.get(el) === entry && coolGenie(el, "in");
+    const unwatch = watch(el, drop);
+    const timer = setTimeout(drop, WARM_MS + 100);
+    entry.stop = () => (unwatch(), clearTimeout(timer));
     warmIn.set(el, entry);
-    // never leave ghost copies behind (window closed by keyboard, pointer never left, …)
-    setTimeout(() => warmIn.get(el) === entry && coolGenie(el, "in"), WARM_MS + 100);
   } else {
-    const entry = { at: performance.now(), p: prepareGenie(el).catch(() => null) };
+    const entry: Warm<Genie | null> = { at: performance.now(), p: prepareGenie(el).catch(() => null), stop: () => undefined };
+    const drop = () => warmOut.get(el) === entry && coolGenie(el, "out");
+    const unwatch = watch(el, drop);
+    const timer = setTimeout(drop, WARM_MS + 100);
+    entry.stop = () => (unwatch(), clearTimeout(timer));
     warmOut.set(el, entry);
-    setTimeout(() => warmOut.get(el) === entry && coolGenie(el, "out"), WARM_MS + 100);
   }
 }
 
@@ -398,10 +457,12 @@ export function coolGenie(el: HTMLElement | null, dir: "in" | "out") {
   if (dir === "in") {
     const w = warmIn.get(el);
     warmIn.delete(el);
+    w?.stop();
     void w?.p.then(r => r.genie?.cancel());
   } else {
     const w = warmOut.get(el);
     warmOut.delete(el);
+    w?.stop();
     void w?.p.then(g => g?.cancel());
   }
 }
@@ -410,6 +471,7 @@ export function coolGenie(el: HTMLElement | null, dir: "in" | "out") {
 export function takeMinimize(el: HTMLElement): Promise<Minimized> {
   const w = warmIn.get(el);
   warmIn.delete(el);
+  w?.stop();
   if (w && performance.now() - w.at < WARM_MS) return w.p;
   void w?.p.then(r => r.genie?.cancel());
   return prepareMinimize(el);
@@ -419,7 +481,32 @@ export function takeMinimize(el: HTMLElement): Promise<Minimized> {
 export function takeRestore(el: HTMLElement): Promise<Genie | null> {
   const w = warmOut.get(el);
   warmOut.delete(el);
+  w?.stop();
   if (w && performance.now() - w.at < WARM_MS) return w.p;
   void w?.p.then(g => g?.cancel());
   return prepareGenie(el);
+}
+
+/**
+ * Where a Dock slot will end up once every slot that is still growing or shrinking (itself included) has
+ * settled (the Dock is centred, so any resize moves it). Those size animations are moved to 1 ms before
+ * their end for the measurement and put back in the same task: nothing is painted in between, and none
+ * of them finishes (no finish callbacks fire).
+ */
+export function settledRect(el: HTMLElement): DOMRect {
+  const dock = el.closest(".fx-dock");
+  const anims = dock
+    ? dock.getAnimations({ subtree: true }).filter(a => {
+        const t = (a.effect as KeyframeEffect | null)?.target;
+        return a.playState === "running" && t instanceof HTMLElement && t.classList.contains("fx-dock-item");
+      })
+    : [];
+  const saved = anims.map(a => a.currentTime);
+  for (const a of anims) {
+    const end = Number(a.effect?.getComputedTiming().endTime ?? 0);
+    if (end > 1) a.currentTime = end - 1;
+  }
+  const r = el.getBoundingClientRect();
+  anims.forEach((a, i) => (a.currentTime = saved[i]));
+  return r;
 }

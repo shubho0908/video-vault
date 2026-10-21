@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 
 import { entryDock, useEntryDock } from "./entry-dock";
-import { fitThumb } from "./genie";
+import { fitThumb, retargetGenies, settledRect } from "./genie";
 import { NotesIcon } from "./icons";
 
 const BASE = 54;
@@ -34,8 +34,9 @@ export function EntrySlot() {
   useLayoutEffect(() => {
     const el = item.current;
     if (!shown || !el || !box.current) return;
-    entryDock.setSlotRect(box.current.getBoundingClientRect());
+    entryDock.setSlotRect(settledRect(box.current));
     if (!reduced()) el.animate([{ width: "0px", marginLeft: `-${DOCK_GAP}px` }, { width: `${TW}px`, marginLeft: "0px" }], { duration: 280, easing: EASE });
+    retargetGenies();
   }, [shown]);
 
   // shrink away once the window is back out, then drop the slot
@@ -45,6 +46,7 @@ export function EntrySlot() {
     for (const a of el.getAnimations()) a.cancel();
     const a = el.animate([{ width: `${TW}px`, marginLeft: "0px" }, { width: "0px", marginLeft: `-${DOCK_GAP}px` }], { duration: reduced() ? 1 : 240, easing: EASE, fill: "forwards" });
     a.finished.then(() => entryDock.get()?.leaving && entryDock.clear(), () => undefined);
+    retargetGenies();
     return () => a.cancel();
   }, [leaving]);
 

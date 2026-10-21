@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Check, Copy, Search } from "lucide-react";
 
 import { evalExpr, formatNum } from "./calc-expr";
@@ -10,6 +10,42 @@ import { thumb, type LibraryData } from "./library";
 import { APPS, ORDER, type AppId } from "./windows";
 
 export type Panel = "battery" | "wifi" | "cc" | "date" | null;
+
+/**
+ * Display brightness lives outside React's desktop state: dragging the slider re-renders only the
+ * slider and the dimmer, not the whole desktop. The dimmer is a black layer whose opacity is
+ * 1 - brightness, which is pixel-identical to filter: brightness() but costs one blended layer
+ * instead of re-filtering the whole screen (and every animation on it) each frame.
+ */
+let brightness = 1;
+const brightSubs = new Set<() => void>();
+const brightStore = {
+  subscribe: (f: () => void) => (brightSubs.add(f), () => void brightSubs.delete(f)),
+  get: () => brightness,
+  set: (v: number) => ((brightness = v), brightSubs.forEach(f => f())),
+};
+const useBrightness = () => useSyncExternalStore(brightStore.subscribe, brightStore.get, () => 1);
+export function Dimmer() {
+  const b = useBrightness();
+  return b < 1 ? <div className="fx-dim" aria-hidden style={{ opacity: 1 - b }} /> : null;
+}
+
+/** Menu bar clock: ticks on its own, so the desktop does not re-render every 15 seconds. */
+export function MenuClock({ onClick, open }: { onClick: () => void; open: boolean }) {
+  const [now, setNow] = useState("");
+  useEffect(() => {
+    const f = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    let t: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      setNow(f.format(new Date()).replace(/,/g, "").replace(/\s?(AM|PM)/, "\u202f$1"));
+      // wake exactly on the next minute instead of polling
+      t = setTimeout(tick, 60000 - (Date.now() % 60000) + 50);
+    };
+    tick();
+    return () => clearTimeout(t);
+  }, []);
+  return <button className="fx-mb-item" data-open={open} onClick={onClick} suppressHydrationWarning>{now}</button>;
+}
 
 type Battery = { level: number; charging: boolean } | null | undefined;
 export function useBattery(): Battery {
@@ -121,7 +157,8 @@ const gShot = G(<><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2
 const gSun = G(<><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6L19 19M5 19l1.4-1.4M17.6 6.4L19 5" /></>);
 const gVol = G(<><path d="M4 9.5v5h4l5 4v-13l-5 4z" fill="currentColor" /><path d="M16.5 9a4 4 0 0 1 0 6" /></>);
 
-export function ControlCenter({ dark, setDark, wifi, setWifi, brightness, setBrightness, openSettings }: { dark: boolean; setDark: () => void; wifi: boolean; setWifi: () => void; brightness: number; setBrightness: (n: number) => void; openSettings: () => void }) {
+export function ControlCenter({ dark, setDark, wifi, setWifi, openSettings }: { dark: boolean; setDark: () => void; wifi: boolean; setWifi: () => void; openSettings: () => void }) {
+  const brightness = useBrightness();
   const [bt, setBt] = useState(true);
   const [air, setAir] = useState(true);
   const [focus, setFocus] = useState(false);
@@ -151,7 +188,7 @@ export function ControlCenter({ dark, setDark, wifi, setWifi, brightness, setBri
       <button className="fx-g fx-cc-cap" style={{ gridArea: "focus" }} aria-pressed={focus} onClick={() => setFocus(!focus)}><span className="fx-cc-ic" data-on={focus}>{gMoon}</span><b>Focus</b></button>
       <button className="fx-g fx-cc-circ" style={{ gridArea: "stage" }} aria-label="Stage Manager">{gStage}</button>
       <button className="fx-g fx-cc-circ" style={{ gridArea: "mirror" }} aria-label="Screen Mirroring">{gMirror}</button>
-      <div style={{ gridArea: "disp" }}>{slider("Display", brightness, setBrightness, 0.4, gSun, gSun)}</div>
+      <div style={{ gridArea: "disp" }}>{slider("Display", brightness, brightStore.set, 0.4, gSun, gSun)}</div>
       <div style={{ gridArea: "snd" }}>{slider("Sound", vol, setVol, 0, gVol, gVol)}</div>
       <div className="fx-cc-bottom">
         <button className="fx-g fx-cc-circ" aria-label="Dark Mode" aria-pressed={dark} data-on={dark} onClick={setDark}>{gDark}</button>

@@ -91,6 +91,16 @@ export async function getEntryForOwner(ownerId: string, entryId: string) {
   return rows[0] ?? null;
 }
 
+/** Ownership check that reads only the id, not the full row (notes_markdown can be up to 50 KB). */
+async function ownsEntry(ownerId: string, entryId: string) {
+  const rows = await db
+    .select({ id: videoEntries.id })
+    .from(videoEntries)
+    .where(and(eq(videoEntries.id, entryId), eq(videoEntries.ownerId, ownerId)))
+    .limit(1);
+  return rows.length > 0;
+}
+
 export async function getImagesForEntry(ownerId: string, entryId: string) {
   const rows = await db
     .select({ image: entryImages })
@@ -148,8 +158,8 @@ export async function addEntryImage(
   input: z.infer<typeof imageInputSchema>
 ) {
   const parsed = imageInputSchema.parse(input);
-  const entry = await getEntryForOwner(ownerId, parsed.entryId);
-  if (!entry) throw new Error("That journal entry was not found.");
+  if (!(await ownsEntry(ownerId, parsed.entryId)))
+    throw new Error("That journal entry was not found.");
   const rows = await db
     .insert(entryImages)
     .values({ id: randomUUID(), ...parsed, altText: parsed.altText || null })
@@ -238,6 +248,15 @@ export async function getPlaylistForOwner(ownerId: string, playlistId: string) {
     .where(and(eq(playlists.id, playlistId), eq(playlists.ownerId, ownerId)))
     .limit(1);
   return rows[0] ?? null;
+}
+
+async function ownsPlaylist(ownerId: string, playlistId: string) {
+  const rows = await db
+    .select({ id: playlists.id })
+    .from(playlists)
+    .where(and(eq(playlists.id, playlistId), eq(playlists.ownerId, ownerId)))
+    .limit(1);
+  return rows.length > 0;
 }
 
 export async function getPlaylistEntries(ownerId: string, playlistId: string) {
@@ -402,8 +421,8 @@ export async function placeEntry(
 ) {
   const { entryId, fromId, toId } = input;
   const [entry, ...folders] = await Promise.all([
-    getEntryForOwner(ownerId, entryId),
-    ...[fromId, toId].map(id => (id ? getPlaylistForOwner(ownerId, id) : true)),
+    ownsEntry(ownerId, entryId),
+    ...[fromId, toId].map(id => (id ? ownsPlaylist(ownerId, id) : true)),
   ]);
   if (!entry) throw new Error("That journal entry was not found.");
   if (folders.some(folder => !folder))

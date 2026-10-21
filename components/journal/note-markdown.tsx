@@ -1,18 +1,20 @@
 import {
   Children,
   isValidElement,
+  memo,
+  useMemo,
   type ComponentPropsWithoutRef,
   type ReactElement,
 } from "react";
 import { Check } from "lucide-react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components, type Options } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import rehypeHighlight from "rehype-highlight";
 
 import {
   resolveNoteImageReferences,
   type NoteImageReference,
 } from "@/lib/markdown";
+import { rehypeCodeHighlight } from "@/lib/rehype-code-highlight";
 
 type NoteMarkdownProps = {
   markdown: string;
@@ -20,6 +22,11 @@ type NoteMarkdownProps = {
   emptyMessage?: string;
   className?: string;
 };
+
+// Module-level so ReactMarkdown sees the same plugin/component identities on every render.
+const REMARK_PLUGINS: Options["remarkPlugins"] = [remarkGfm];
+const REHYPE_PLUGINS: Options["rehypePlugins"] = [rehypeCodeHighlight];
+const EMPTY_IMAGES: NoteImageReference[] = [];
 
 function MarkdownListItem({
   children,
@@ -66,24 +73,35 @@ function MarkdownListItem({
   );
 }
 
-export function NoteMarkdown({
+const MARKDOWN_COMPONENTS: Components = { li: MarkdownListItem };
+
+/**
+ * Memoized: parents (the entry window, the editor) re-render on every keystroke and state change, but the
+ * Markdown → React pipeline (parse, GFM, syntax highlighting) only needs to rerun when the text or the
+ * image set actually changes.
+ */
+export const NoteMarkdown = memo(function NoteMarkdown({
   markdown,
-  images = [],
+  images = EMPTY_IMAGES,
   emptyMessage = "No notes added yet.",
   className = "markdown-body",
 }: NoteMarkdownProps) {
+  const resolved = useMemo(
+    () => (markdown ? resolveNoteImageReferences(markdown, images) : ""),
+    [markdown, images]
+  );
+
   if (!markdown) return <p className="text-muted-foreground">{emptyMessage}</p>;
 
   return (
     <article className={className}>
       <ReactMarkdown
-        components={{ li: MarkdownListItem }}
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeHighlight]}
+        components={MARKDOWN_COMPONENTS}
+        remarkPlugins={REMARK_PLUGINS}
+        rehypePlugins={REHYPE_PLUGINS}
       >
-        {resolveNoteImageReferences(markdown, images)}
+        {resolved}
       </ReactMarkdown>
     </article>
   );
-}
-
+});

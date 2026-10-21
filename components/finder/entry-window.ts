@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
 import { entryDock, useEntryDock } from "./entry-dock";
-import { genie } from "./genie";
+import { prepareGenie, snapshotWindow } from "./genie";
 import type { Geom } from "./window-geom";
 
 const raf2 = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -22,17 +22,20 @@ export function useEntryWindow(frame: RefObject<HTMLDivElement | null>, pos: Ref
     const el = frame.current;
     if (!el || busy.current || minimized.current) return;
     busy.current = true;
+    // snapshot first: a cheap static copy (the video becomes its poster, so the Dock never loads a second player)
+    const tpl = snapshotWindow(el);
+    const thumb = tpl ? (tpl.cloneNode(true) as HTMLElement) : null;
+    const prepared = tpl ? prepareGenie(el, tpl) : Promise.resolve(null);
     entryDock.show(title);
     setMin(true);
     minimized.current = true;
     await raf2();
+    const g = await prepared;
     const slot = entryDock.get()?.slot?.getBoundingClientRect();
-    if (slot) {
-      const snap = el.cloneNode(true) as HTMLElement;
-      await genie(el, slot, "in", 620);
-      el.style.visibility = "hidden";
-      entryDock.setThumb(snap);
-    } else el.style.visibility = "hidden";
+    if (g && slot) await g.play(slot, "in", 620);
+    else g?.cancel();
+    el.style.visibility = "hidden";
+    if (thumb) entryDock.setThumb(thumb);
     busy.current = false;
   }, [frame, title]);
 
@@ -40,10 +43,12 @@ export function useEntryWindow(frame: RefObject<HTMLDivElement | null>, pos: Ref
   const rect = dock?.restoreRect ?? null;
   useEffect(() => {
     const el = frame.current;
-    if (!rect || !el || !minimized.current) return;
+    if (!rect || !el || !minimized.current || busy.current) return;
     busy.current = true;
-    setMin(false);
-    void genie(el, rect, "out", 560).then(() => {
+    // build the copies while the window is still hidden, then show and animate in one frame
+    void prepareGenie(el).then(async g => {
+      setMin(false);
+      if (g) await g.play(rect, "out", 560);
       el.style.visibility = "";
       minimized.current = false;
       busy.current = false;

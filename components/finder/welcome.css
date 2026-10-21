@@ -2,7 +2,8 @@
 .wl-blank { background: #1b1170; }
 .wl-wall { position: absolute; inset: -4%; background: var(--fx-wall); }
 .wl-auth { position: absolute; inset: 0; animation: wl-auth-in .6s cubic-bezier(.2,.8,.2,1) both; }
-@keyframes wl-auth-in { from { opacity: 0; transform: scale(1.04); filter: blur(12px); } to { opacity: 1; transform: none; filter: none; } }
+/* opacity + scale only: a blur filter here re-blurred the full-screen wallpaper and the glass button every frame */
+@keyframes wl-auth-in { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: none; } }
 .wl-intro { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; background: var(--wl-bg); transition: opacity .5s ease, transform .5s ease; }
 .wl-intro[data-out="true"] { opacity: 0; transform: scale(1.06); pointer-events: none; }
 .wl-write { width: min(78vw, 560px); height: auto; overflow: visible; }
@@ -14,7 +15,7 @@
 .wl-write { clip-path: inset(-10% 100% -20% 0); animation: wl-write 1.3s cubic-bezier(.45,.05,.25,1) forwards; filter: drop-shadow(0 0 18px rgba(10,132,255,.35)); }
 @keyframes wl-write { to { clip-path: inset(-10% -4% -20% 0); } }
 .wl-greet { font-weight: 600; letter-spacing: -.02em; font-size: clamp(56px, 11vw, 120px); font-family: -apple-system, BlinkMacSystemFont, system-ui, "Noto Sans", "Noto Sans Devanagari", "Noto Sans JP", "Noto Sans KR", "Noto Sans SC", sans-serif; animation: wl-greet .3s ease both; }
-@keyframes wl-greet { from { opacity: 0; filter: blur(10px); transform: scale(.96); } to { opacity: 1; filter: none; transform: none; } }
+@keyframes wl-greet { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
 
 /* macOS login window feel */
 .wl-mbar { position: absolute; top: 0; left: 0; right: 0; height: 28px; display: flex; justify-content: space-between; padding: 0 14px; align-items: center; font-size: 13px; font-weight: 500; text-shadow: 0 1px 2px rgba(0,0,0,.3); }
@@ -50,10 +51,13 @@
 
 /* jelly / glass tube lettering: shadow, dark rim, gradient body, soft inner light, thin specular (layered strokes) */
 .wl-write { filter: none; width: min(80vw, 600px); }
-.wl-sh { stroke: rgba(0,0,0,.38); stroke-width: 26; }
+/* soft shadow and inner light without SVG blur filters (those re-ran on every frame of the drawing animation) */
+.wl-sh { stroke: rgba(0,0,0,.16); stroke-width: 34; }
+.wl-sh2 { stroke: rgba(0,0,0,.24); stroke-width: 28; }
 .wl-rim { stroke: var(--wl-rim); stroke-width: 29; }
 .wl-body { stroke: url(#wl-g); stroke-width: 24; }
-.wl-in { stroke: rgba(255,255,255,.5); stroke-width: 11; }
+.wl-in { stroke: rgba(255,255,255,.22); stroke-width: 13; }
+.wl-in2 { stroke: rgba(255,255,255,.32); stroke-width: 8; }
 .wl-hl { stroke: rgba(255,255,255,.95); stroke-width: 2.6; }
 .wl-root[data-os="mac"] { --wl-rim: #2c58c9; --wl-b0: #cfe0ff; --wl-b1: #7fa8ff; --wl-b2: #62cfae; --wl-edge: rgba(30,60,170,.55); }
 .wl-root[data-os="ios"] { --wl-rim: #a58b7e; --wl-b0: #fff6f1; --wl-b1: #f5ddd2; --wl-b2: #e4bfb2; --wl-edge: rgba(120,90,80,.5); }
@@ -61,6 +65,7 @@
 .wl-root[data-os="ios"] { --wl-c0: #fbe6dc; --wl-c1: #f9ece5; --wl-c2: #f2d4c9; }
 .wl-greet { font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, "Noto Sans", "Noto Sans Devanagari", "Noto Sans JP", "Noto Sans KR", "Noto Sans SC", sans-serif; font-weight: 800; letter-spacing: -.01em;
   background: linear-gradient(180deg, var(--wl-b0) 0%, var(--wl-b1) 38%, var(--wl-b2) 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
-  -webkit-text-stroke: 2px var(--wl-edge); paint-order: stroke fill; filter: drop-shadow(0 4px 5px rgba(0,0,0,.3)) drop-shadow(0 -1px 0 rgba(255,255,255,.55)); }
+  -webkit-text-stroke: 2px var(--wl-edge); paint-order: stroke fill; }
 
 .wl-root[data-os] { --wl-bg: var(--fx-wall); }
+.wl-intro, .wl-greet, .wl-write { will-change: opacity, transform; }

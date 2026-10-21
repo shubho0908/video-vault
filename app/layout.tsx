@@ -5,12 +5,28 @@ import "@/app/globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { wallpaperBootScript } from "@/lib/wallpaper-boot";
 
-const sans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const mono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+// The Finder/iOS UI (every route) renders in system fonts via `.fx`, so none of these faces is needed for
+// first paint. They only show up in secondary UI: Geist in Radix dialog portals outside `.fx`, Geist Mono
+// in the notes editor and code blocks, Newsreader in the editor preview's headings. Don't preload them;
+// the @font-face rules stay, so the browser still fetches a face (with swap) as soon as it is rendered.
+const sans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+  display: "swap",
+  preload: false,
+});
+const mono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+  display: "swap",
+  preload: false,
+});
 const serif = Newsreader({
   variable: "--font-newsreader",
   subsets: ["latin"],
   style: ["normal", "italic"],
+  display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {

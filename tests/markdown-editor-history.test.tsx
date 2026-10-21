@@ -144,6 +144,28 @@ describe("markdown editor history", () => {
     expect(setSelectionRange).not.toHaveBeenCalled();
   });
 
+  it("keeps an IME composition in its own undo step, apart from typing before a pause", () => {
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    type("abc");
+    // pause longer than a typing step, then compose for a long time
+    act(() => {
+      textarea().dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
+    });
+    type("k", now + 5000);
+    type("a", now + 2000);
+    act(() => {
+      textarea().dispatchEvent(new CompositionEvent("compositionend", { bubbles: true }));
+    });
+    act(() => vi.runAllTimers());
+    type("d", now + 10);
+    vi.useRealTimers();
+
+    click("Undo (⌘Z)");
+    expect(textarea().value).toBe("abcka");
+    click("Undo (⌘Z)");
+    expect(textarea().value).toBe("abc");
+  });
+
   it("caps retained history by characters, dropping the oldest steps", () => {
     const chunk = "x".repeat(10_000);
     for (let step = 1; step <= 20; step += 1) type(chunk, step * 1000);

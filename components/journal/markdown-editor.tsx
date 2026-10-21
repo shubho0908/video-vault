@@ -952,9 +952,16 @@ export function MarkdownEditor({
             onSelect={event => updateSelection(event.currentTarget)}
             onCompositionStart={() => {
               composingRef.current = true;
+              // a composition opens its own undo step: never merge it into typing from before a pause
+              historyRef.current.typingSince = 0;
             }}
             onCompositionEnd={() => {
-              composingRef.current = false;
+              // Safari sends the final composition input after compositionend: keep the step open for it,
+              // then close it so later typing does not join the composed text
+              setTimeout(() => {
+                composingRef.current = false;
+                historyRef.current.typingSince = 0;
+              }, 0);
             }}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}

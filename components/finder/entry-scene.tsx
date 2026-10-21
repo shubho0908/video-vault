@@ -1,17 +1,18 @@
 "use client";
 
+import { useIsDesktop, whenIdle } from "./client-env";
+
 import "./finder.css";
 import { useEntryWindow } from "./entry-window";
-import { ResizeHandles, ZOOM_STYLE, clampDrag } from "./window-geom";
+import { ResizeHandles, ZOOM_STYLE, flipZoom, startWindowDrag } from "./window-geom";
+import { OPEN_DESKTOP, OPEN_SHEET, skeletonHandover } from "./entry-preview";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as RPointerEvent } from "react";
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from "react";
 import { CalendarDays, LoaderCircle, Pencil, Trash2, Video } from "lucide-react";
 
 import { deleteEntryAction, saveEntryAction } from "@/app/actions";
 import { bus } from "./lib-bus";
-import { ImagePanel } from "@/components/journal/image-panel";
-import { MarkdownEditor } from "@/components/journal/markdown-editor";
 import { NoteMarkdown } from "@/components/journal/note-markdown";
 import type { JournalEntry } from "@/lib/journal";
 import { getYouTubeThumbnail, getYouTubeVideoId } from "@/lib/youtube";
@@ -20,16 +21,16 @@ import { VideoEmbed } from "./video-embed";
 export type SceneImage = { id: string; filePath: string; altText: string | null; width: number | null; height: number | null; signedUrl: string };
 export type SceneMode = "new" | "view" | "edit";
 
-const query = "(min-width: 1024px) and (hover: hover) and (pointer: fine)";
-const subscribe = (cb: () => void) => {
-  const m = matchMedia(query);
-  m.addEventListener("change", cb);
-  return () => m.removeEventListener("change", cb);
-};
-const EASE_OUT = "cubic-bezier(.2,.9,.3,1)";
 const EASE_IN = "cubic-bezier(.4,0,1,1)";
 const DRAFT = "vv-entry-draft";
 const SHEET_EASE = "cubic-bezier(.32,.72,0,1)";
+
+// The editor and the image uploader are only needed in edit/new mode: keep them out of the view bundle
+// and fetch them in the background once the window is idle, so Edit still opens instantly.
+const loadEditor = () => import("@/components/journal/markdown-editor");
+const loadImages = () => import("@/components/journal/image-panel");
+const MarkdownEditor = lazy(() => loadEditor().then(m => ({ default: m.MarkdownEditor })));
+const ImagePanel = lazy(() => loadImages().then(m => ({ default: m.ImagePanel })));
 
 const dateFormat = new Intl.DateTimeFormat("en", { month: "long", day: "numeric", year: "numeric" });
 
@@ -37,7 +38,7 @@ type Values = { title: string; youtubeUrl: string; topic: string; notesMarkdown:
 
 export function EntryScene({ mode: initialMode, entry, images, standalone }: { mode: SceneMode; entry?: JournalEntry; images: SceneImage[]; standalone: boolean }) {
   const router = useRouter();
-  const desktop = useSyncExternalStore(subscribe, () => matchMedia(query).matches, () => null);
+  const desktop = useIsDesktop();
   const [mode, setMode] = useState<SceneMode>(initialMode);
   const [values, setValues] = useState<Values>(() => {
     if (!entry && initialMode === "new") {
@@ -57,21 +58,41 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
   const frame = useRef<HTMLDivElement>(null);
   const backRef = useRef<HTMLDivElement>(null);
   const closing = useRef(false);
+  const zoomFrom = useRef<DOMRect | null>(null);
+  const toggleZoom = useCallback(() => {
+    zoomFrom.current = frame.current?.getBoundingClientRect() ?? null;
+    setZoomed(z => !z);
+  }, []);
 
   const cur = entry ? { ...entry, title: values.title.trim() || entry.title, topic: values.topic.trim(), notesMarkdown: values.notesMarkdown, youtubeId: getYouTubeVideoId(values.youtubeUrl) ?? entry.youtubeId } : undefined;
-  const imagePanel = useMemo(() => (entry ? <ImagePanel entryId={entry.id} images={images} /> : null), [entry, images]);
+  const imagePanel = useMemo(() => (entry ? <Suspense fallback={<div style={{ minHeight: 120 }} />}><ImagePanel entryId={entry.id} images={images} /></Suspense> : null), [entry, images]);
   const editing = mode !== "view";
   const dirty = editing && (values.title !== (entry?.title ?? "") || values.youtubeUrl !== (entry?.youtubeUrl ?? "") || values.topic !== (entry?.topic ?? "") || values.notesMarkdown !== (entry?.notesMarkdown ?? ""));
   const vid = getYouTubeVideoId(values.youtubeUrl);
   const update = <K extends keyof Values>(k: K, v: Values[K]) => setValues(c => ({ ...c, [k]: v }));
 
-  // open animation: macOS window pop, iOS sheet rise
+  // open animation: macOS window pop, iOS sheet rise. When the loading skeleton was on screen, carry
+  // on from where its animation was instead of popping a second time.
   useLayoutEffect(() => {
     const el = frame.current;
     if (!el || desktop === null) return;
-    if (desktop) el.animate([{ transform: "scale(0.9)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 300, easing: EASE_OUT });
-    else el.animate([{ transform: "translateY(110%)" }, { transform: "none" }], { duration: 500, easing: SHEET_EASE });
+    const ran = skeletonHandover.take(desktop);
+    const [kf, opts] = desktop ? OPEN_DESKTOP : OPEN_SHEET;
+    // the iOS backdrop continues its fade too (or stays fully shown when the skeleton already finished it)
+    if (ran !== null && backRef.current) backRef.current.style.animationDelay = `-${ran}ms`;
+    if (ran !== null && ran >= Number(opts.duration)) return;
+    const a = el.animate(kf, opts);
+    if (ran !== null) a.currentTime = ran;
   }, [desktop]);
+
+  useLayoutEffect(() => {
+    const from = zoomFrom.current;
+    zoomFrom.current = null;
+    if (from) flipZoom(frame.current, from);
+  }, [zoomed]);
+
+  // warm the editor chunks while the user reads, so switching to Edit has nothing to download
+  useEffect(() => whenIdle(() => void Promise.all([loadEditor(), loadImages()]).catch(() => undefined)), []);
 
   const leave = useCallback(async () => {
     if (closing.current) return;
@@ -198,27 +219,14 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
       const now = performance.now();
       if (now - lastDown.current < 500) {
         lastDown.current = 0;
-        setZoomed(z => !z);
+        toggleZoom();
         return;
       }
       lastDown.current = now;
     }
     if (zoomed || (e.target as HTMLElement).closest("button,input,a")) return;
-    const sx = e.clientX - pos.current.x, sy = e.clientY - pos.current.y;
-    const el = e.currentTarget as HTMLElement;
-    el.setPointerCapture(e.pointerId);
-    const win = frame.current;
     // move the window by writing the transform directly: no React re-render per pointermove
-    const r0 = (win ?? el).getBoundingClientRect();
-    const x0 = pos.current.x, y0 = pos.current.y;
-    const mv = (m: PointerEvent) => {
-      const [dx, dy] = clampDrag(r0, m.clientX - sx - x0, m.clientY - sy - y0);
-      pos.current = { x: x0 + dx, y: y0 + dy };
-      if (win) win.style.translate = `${pos.current.x}px ${pos.current.y}px`;
-    };
-    const up = () => (el.removeEventListener("pointermove", mv), el.removeEventListener("pointerup", up));
-    el.addEventListener("pointermove", mv);
-    el.addEventListener("pointerup", up);
+    startWindowDrag(e, frame.current, pos.current, p => void (pos.current = p));
   }
   // iOS: pull the sheet down to dismiss
   function sheetStart(e: RPointerEvent) {
@@ -238,12 +246,14 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
     const up = () => {
       el.removeEventListener("pointermove", mv);
       el.removeEventListener("pointerup", up);
+      el.removeEventListener("pointercancel", up);
       const v = dy / Math.max(performance.now() - t0, 1);
       if (dy > 140 || v > 0.6) requestClose();
       else resetSheet();
     };
     el.addEventListener("pointermove", mv);
     el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
   }
 
   const ew = useEntryWindow(frame, pos, mode === "new" ? "New Entry" : mode === "edit" ? "Edit Entry" : (entry?.title ?? "Entry"), desktop === true);
@@ -304,7 +314,9 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
           </div>
           <div className="fx-ew-sec">Notes</div>
           <div className="fx-ew-editor" data-nodrag>
-            <MarkdownEditor value={values.notesMarkdown} onChangeAction={v => update("notesMarkdown", v)} entryId={entry?.id} images={images} minHeightClassName="min-h-[320px]" />
+            <Suspense fallback={<div style={{ minHeight: 380 }} />}>
+              <MarkdownEditor value={values.notesMarkdown} onChangeAction={v => update("notesMarkdown", v)} entryId={entry?.id} images={images} minHeightClassName="min-h-[320px]" />
+            </Suspense>
           </div>
           {entry ? (
             <div className="fx-ew-images" data-nodrag>{imagePanel}</div>
@@ -342,11 +354,11 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
     return (
       <div className="fx fx-ew-layer" data-standalone={standalone} style={ew.min ? { pointerEvents: "none" } : undefined}>
         {wall}
-        <div ref={frame} className={`fx-window fx-ew-win ${zoomed ? "fx-zooming-on" : ""}`} data-active="true" data-min={ew.min} data-zoomed={zoomed} style={style} role="dialog" aria-label={heading}>
+        <div ref={frame} className="fx-window fx-ew-win" data-active="true" data-min={ew.min} data-zoomed={zoomed} style={style} role="dialog" aria-label={heading}>
           <div className="fx-traffic" data-nodrag>
             <button className="r" aria-label="Close" onClick={requestClose}><svg viewBox="0 0 12 12"><path d="m3.600 3.600 4.800 4.800m0-4.800-4.800 4.800" /></svg></button>
             <button className="y" aria-label="Minimize" disabled={standalone} onClick={() => void ew.minimize()}><svg viewBox="0 0 12 12"><path d="M3 6h6" /></svg></button>
-            <button className="g" aria-label="Zoom" onClick={() => setZoomed(z => !z)}><svg viewBox="0 0 12 12"><path d="M3.500 8.500V4.600a1.100 1.100 0 0 1 1.100-1.100h3.900M8.500 3.500v3.900a1.100 1.100 0 0 1-1.100 1.100H3.500" /></svg></button>
+            <button className="g" aria-label="Zoom" onClick={toggleZoom}><svg viewBox="0 0 12 12"><path d="M3.500 8.500V4.600a1.100 1.100 0 0 1 1.100-1.100h3.900M8.500 3.500v3.900a1.100 1.100 0 0 1-1.100 1.100H3.500" /></svg></button>
           </div>
           <section className="fx-main fx-ew-panel">
             <div className="fx-toolbar fx-ew-bar" onPointerDown={dragStart}>

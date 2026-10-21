@@ -1,5 +1,7 @@
 "use client";
 
+import { useIsDesktop } from "./client-env";
+
 import Link from "next/link";
 import { helloPaths } from "./hello-paths";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -9,12 +11,6 @@ import "./finder.css";
 import "./welcome.css";
 
 
-const query = "(min-width: 1024px) and (hover: hover) and (pointer: fine)";
-const subscribe = (cb: () => void) => {
-  const m = matchMedia(query);
-  m.addEventListener("change", cb);
-  return () => m.removeEventListener("change", cb);
-};
 
 // "hello" is written first, then these cycle (about 3.6s together with the writing).
 const greetings = ["नमस्ते", "Bonjour", "Hola", "こんにちは", "Ciao", "Hello"];
@@ -53,13 +49,16 @@ function Intro({ onDone }: { onDone: () => void }) {
         <svg className="wl-write" viewBox="-20 -20 678 240" fill="none" strokeLinecap="round" strokeLinejoin="round" role="img" aria-label="hello">
           <defs>
             <linearGradient id="wl-g" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="638" y2="0"><stop offset="0" className="wl-s0" /><stop offset=".55" className="wl-s1" /><stop offset="1" className="wl-s2" /></linearGradient>
-            <filter id="wl-blur" x="-20%" y="-30%" width="140%" height="160%"><feGaussianBlur stdDeviation="3" /></filter>
-            <filter id="wl-blur2" x="-20%" y="-30%" width="140%" height="160%"><feGaussianBlur stdDeviation="1.2" /></filter>
           </defs>
-          <g transform="translate(0 4)" filter="url(#wl-blur)">{helloPaths.map((d, n) => <path key={`s${n}`} d={d} pathLength={1} className={`wl-p wl-sh wl-p${n}`} />)}</g>
+          {/* soft edges come from stacked translucent strokes, not feGaussianBlur: no filter pass per animation frame */}
+          <g transform="translate(0 4)">
+            {helloPaths.map((d, n) => <path key={`s${n}`} d={d} pathLength={1} className={`wl-p wl-sh wl-p${n}`} />)}
+            {helloPaths.map((d, n) => <path key={`t${n}`} d={d} pathLength={1} className={`wl-p wl-sh2 wl-p${n}`} />)}
+          </g>
           {helloPaths.map((d, n) => <path key={`r${n}`} d={d} pathLength={1} className={`wl-p wl-rim wl-p${n}`} />)}
           {helloPaths.map((d, n) => <path key={n} d={d} pathLength={1} className={`wl-p wl-body wl-p${n}`} />)}
-          <g filter="url(#wl-blur2)">{helloPaths.map((d, n) => <path key={`i${n}`} d={d} pathLength={1} className={`wl-p wl-in wl-p${n}`} />)}</g>
+          {helloPaths.map((d, n) => <path key={`i${n}`} d={d} pathLength={1} className={`wl-p wl-in wl-p${n}`} />)}
+          {helloPaths.map((d, n) => <path key={`j${n}`} d={d} pathLength={1} className={`wl-p wl-in2 wl-p${n}`} />)}
           <g transform="translate(-2.5 -3.5)">{helloPaths.map((d, n) => <path key={`h${n}`} d={d} pathLength={1} className={`wl-p wl-hl wl-p${n}`} />)}</g>
         </svg>
       ) : (
@@ -127,7 +126,7 @@ function Auth({ desktop, restricted }: { desktop: boolean; restricted: boolean }
 
 /** Opening "hello" sequence, then the macOS (desktop) or iOS (touch) sign-in screen. */
 export function Welcome({ intro = true, restricted = false }: { intro?: boolean; restricted?: boolean }) {
-  const desktop = useSyncExternalStore(subscribe, () => matchMedia(query).matches, () => null);
+  const desktop = useIsDesktop();
   const [showIntro, setShowIntro] = useState(() => intro && !introSeen());
   if (desktop === null) return <div className="fx wl-root wl-blank" />;
   return (

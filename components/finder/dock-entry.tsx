@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 
 import { entryDock, useEntryDock } from "./entry-dock";
+import { fitThumb } from "./genie";
 import { NotesIcon } from "./icons";
 
 const BASE = 54;
@@ -15,9 +16,7 @@ export function EntrySlot() {
   useEffect(() => {
     const el = box.current;
     if (!el || !thumb) return;
-    thumb.removeAttribute("class");
-    thumb.className = "fx-window";
-    Object.assign(thumb.style, { position: "absolute", left: "0", top: "0", width: "1040px", height: "720px", translate: "none", transform: `scale(${BASE / 720})`, transformOrigin: "0 0", visibility: "visible", pointerEvents: "none" });
+    fitThumb(thumb, TW, BASE);
     el.replaceChildren(thumb);
   }, [thumb]);
   if (!m) return null;

@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, FolderPlus, Inbox, Layers, Plus } from "lucide-react";
 
 import { SmallFolder } from "./icons";
+import { entryPreview } from "./entry-preview";
 import { thumb, type LibEntry, type Location, type useLibrary } from "./library";
 
 type Lib = ReturnType<typeof useLibrary>;
@@ -60,22 +62,42 @@ function BottomSheet({ children, close }: { children: React.ReactNode; close: ()
 
 export function IosLibrary({ lib }: { lib: Lib }) {
   const { data, entriesIn, createFolder, renameFolder, deleteFolder, place } = lib;
+  const router = useRouter();
   const [stack, setStack] = useState<Location[]>([]);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [tab, setTab] = useState<"library" | "unfiled">("library");
   const [leaving, setLeaving] = useState(false);
   const loc: Location | null = stack.at(-1) ?? null;
 
-  const push = (l: Location) => setStack(s => [...s, l]);
+  const popTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(popTimer.current), []);
+  const push = (l: Location) => (clearTimeout(popTimer.current), setLeaving(false), setStack(s => [...s, l]));
   const pop = () => {
+    if (leaving) return;
     setLeaving(true);
-    setTimeout(() => (setStack(s => s.slice(0, -1)), setLeaving(false)), 330);
+    clearTimeout(popTimer.current);
+    popTimer.current = setTimeout(() => (setStack(s => s.slice(0, -1)), setLeaving(false)), 330);
   };
+  // one pass over the memberships instead of one filter per folder row on every render
+  const counts = useMemo(() => {
+    const m = new Map<string, number>();
+    data.memberships.forEach(x => m.set(x.playlistId, (m.get(x.playlistId) ?? 0) + 1));
+    return m;
+  }, [data.memberships]);
+  const here = useMemo(() => (stack.length ? entriesIn(stack[stack.length - 1]) : []), [stack, entriesIn]);
 
   const rows = (list: LibEntry[], from: string | null) =>
     list.map(e => (
       <div key={e.id} className="fx-ios-row" style={{ padding: 0 }}>
-        <Link href={`/entries/${e.id}`} className="fx-ios-row" style={{ flex: 1, textDecoration: "none", color: "inherit" }}>
+        <Link
+          href={`/entries/${e.id}`}
+          // a long library would otherwise prefetch every visible row; warm only the one being touched
+          prefetch={false}
+          onPointerDown={() => router.prefetch(`/entries/${e.id}`)}
+          onClick={() => entryPreview.set({ id: e.id, title: e.title, topic: e.topic, youtubeId: e.youtubeId })}
+          className="fx-ios-row"
+          style={{ flex: 1, textDecoration: "none", color: "inherit" }}
+        >
           <img className="fx-ios-thumb" src={thumb(e.youtubeId)} alt="" loading="lazy" decoding="async" />
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", fontSize: 16 }}>{e.title}</span>
         </Link>
@@ -103,7 +125,7 @@ export function IosLibrary({ lib }: { lib: Lib }) {
             {data.folders.map(f => (
               <button key={f.id} className="fx-ios-row" onClick={() => push(f.id)}>
                 <SmallFolder size={24} /><span style={{ color: "var(--fx-label)" }}>{f.name}</span>
-                <span className="sub">{data.memberships.filter(m => m.playlistId === f.id).length}<ChevronRight size={16} /></span>
+                <span className="sub">{counts.get(f.id) ?? 0}<ChevronRight size={16} /></span>
               </button>
             ))}
           </div>
@@ -122,8 +144,8 @@ export function IosLibrary({ lib }: { lib: Lib }) {
             {folderLoc && <button className="fx-ios-btn fx-glass" onClick={() => setSheet({ kind: "rename", id: folderLoc })}>Edit</button>}
           </div>
           <h1 className="fx-ios-large">{title}</h1>
-          {entriesIn(loc).length ? (
-            <div className="fx-ios-group">{rows(entriesIn(loc), folderLoc)}</div>
+          {here.length ? (
+            <div className="fx-ios-group">{rows(here, folderLoc)}</div>
           ) : (
             <p style={{ textAlign: "center", color: "var(--fx-label-2)", marginTop: 80 }}>No videos here</p>
           )}

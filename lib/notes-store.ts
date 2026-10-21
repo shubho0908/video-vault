@@ -87,8 +87,12 @@ export const notePreview = (body: string) => {
   const ls = body.split("\n").filter(l => l.trim());
   return ls[1]?.replace(/^[#>*\-\s]+/, "").trim().slice(0, 60) || "No additional text";
 };
-export const noteDate = (t: number) => new Date(t).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+// Intl formatters are expensive to build; the note list formats one date per row on every render.
+const longDate = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" });
+const shortDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+const shortTime = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" });
+export const noteDate = (t: number) => longDate.format(t);
 export const noteShortDate = (t: number) => {
   const d = new Date(t), now = new Date();
-  return d.toDateString() === now.toDateString() ? d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return d.toDateString() === now.toDateString() ? shortTime.format(d) : shortDate.format(d);
 };

@@ -7,7 +7,15 @@ import type {
   ClipboardEvent,
   MouseEvent,
 } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Bold,
   Code2,
@@ -39,6 +47,57 @@ import {
 
 type Selection = { start: number; end: number };
 type HistoryItem = { value: string; selection: Selection };
+type History = {
+  current: string;
+  undo: HistoryItem[];
+  redo: HistoryItem[];
+  /** performance.now() of the push that opened the current typing step; 0 when no typing step is open. */
+  typingSince: number;
+  /** Whether the open typing step is inserting (true) or deleting (false) text. */
+  typingInserts: boolean;
+};
+
+/** Undo steps kept at most. */
+const HISTORY_LIMIT = 100;
+/**
+ * Upper bound on characters retained across all undo/redo snapshots (~2 MB as UTF-16). The newest step
+ * always survives, so a single huge note can still be undone once.
+ */
+const HISTORY_CHAR_BUDGET = 1_000_000;
+/** Typing within this window of the last undo snapshot extends that step instead of adding a new one. */
+const TYPING_STEP_MS = 700;
+const EMPTY_IMAGES: NoteImageReference[] = [];
+const NO_SLASH_COMMANDS: SlashCommand[] = [];
+
+function trimHistory(history: History) {
+  if (history.undo.length > HISTORY_LIMIT) {
+    history.undo.splice(0, history.undo.length - HISTORY_LIMIT);
+  }
+  let retained = history.current.length;
+  for (const item of history.undo) retained += item.value.length;
+  for (const item of history.redo) retained += item.value.length;
+  while (retained > HISTORY_CHAR_BUDGET && history.undo.length > 1) {
+    retained -= history.undo.shift()!.value.length;
+  }
+}
+
+type ToolbarAction =
+  | "bold"
+  | "italic"
+  | "inlineCode"
+  | "link"
+  | "heading1"
+  | "heading2"
+  | "heading3"
+  | "bulletList"
+  | "numberedList"
+  | "todoList"
+  | "quote"
+  | "codeBlock"
+  | "divider"
+  | "image"
+  | "undo"
+  | "redo";
 
 type MarkdownEditorProps = {
   value: string;
@@ -54,8 +113,105 @@ type SlashCommand = {
   description: string;
   terms: string;
   icon: typeof Heading1;
-  run: () => void;
+  /** Text that replaces the "/query" on the current line, and where the caret lands inside it. */
+  replacement: string;
+  caret: number;
+  /** Also opens the image picker (or explains why it can't). */
+  upload?: boolean;
 };
+
+// Plain data (no closures), so filtering for the slash menu is pure and memoizable.
+const SLASH_COMMANDS: SlashCommand[] = [
+  {
+    label: "Text",
+    description: "Continue with a plain paragraph",
+    terms: "text paragraph",
+    icon: Heading1,
+    replacement: "",
+    caret: 0,
+  },
+  {
+    label: "Heading 1",
+    description: "Large section heading",
+    terms: "heading h1 title",
+    icon: Heading1,
+    replacement: "# ",
+    caret: 2,
+  },
+  {
+    label: "Heading 2",
+    description: "Medium section heading",
+    terms: "heading h2",
+    icon: Heading2,
+    replacement: "## ",
+    caret: 3,
+  },
+  {
+    label: "Heading 3",
+    description: "Small section heading",
+    terms: "heading h3",
+    icon: Heading3,
+    replacement: "### ",
+    caret: 4,
+  },
+  {
+    label: "To-do list",
+    description: "A Markdown task item",
+    terms: "todo task checkbox checklist",
+    icon: ListChecks,
+    replacement: "- [ ] ",
+    caret: 6,
+  },
+  {
+    label: "Bulleted list",
+    description: "A simple list item",
+    terms: "bullet list unordered",
+    icon: List,
+    replacement: "- ",
+    caret: 2,
+  },
+  {
+    label: "Numbered list",
+    description: "An ordered list item",
+    terms: "number list ordered",
+    icon: ListOrdered,
+    replacement: "1. ",
+    caret: 3,
+  },
+  {
+    label: "Quote",
+    description: "Highlight a supporting thought",
+    terms: "quote callout",
+    icon: Quote,
+    replacement: "> ",
+    caret: 2,
+  },
+  {
+    label: "Code block",
+    description: "A fenced code sample",
+    terms: "code snippet block",
+    icon: FileCode2,
+    replacement: "```\n\n```",
+    caret: 4,
+  },
+  {
+    label: "Divider",
+    description: "A visual section break",
+    terms: "divider separator line",
+    icon: Minus,
+    replacement: "---",
+    caret: 3,
+  },
+  {
+    label: "Upload image",
+    description: "Upload, paste, or drop a private image",
+    terms: "image upload photo paste",
+    icon: ImagePlus,
+    replacement: "",
+    caret: 0,
+    upload: true,
+  },
+];
 
 function ToolbarButton({
   label,
@@ -92,6 +248,130 @@ function currentLine(value: string, caret: number) {
   return { start: lineStart, value: value.slice(lineStart, caret) };
 }
 
+/**
+ * The toolbar only depends on these props, so it is memoized: typing re-renders the editor on every
+ * keystroke, but no longer re-renders ~17 buttons and their icons. `onAction` is a stable dispatcher.
+ */
+const EditorToolbar = memo(function EditorToolbar({
+  entryId,
+  uploading,
+  mode,
+  onAction,
+  onModeChange,
+}: {
+  entryId?: string;
+  uploading: boolean;
+  mode: "write" | "preview";
+  onAction: (action: ToolbarAction) => void;
+  onModeChange: (mode: "write" | "preview") => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-0.5 border-b border-border bg-muted/30 px-2 py-1.5">
+      <ToolbarButton
+        label="Bold (⌘B)"
+        icon={Bold}
+        onClick={() => onAction("bold")}
+      />
+      <ToolbarButton
+        label="Italic (⌘I)"
+        icon={Italic}
+        onClick={() => onAction("italic")}
+      />
+      <ToolbarButton
+        label="Inline code"
+        icon={Code2}
+        onClick={() => onAction("inlineCode")}
+      />
+      <ToolbarButton
+        label="Add link"
+        icon={Link2}
+        onClick={() => onAction("link")}
+      />
+      <span className="mx-1 h-5 w-px bg-border" />
+      <ToolbarButton
+        label="Heading 1"
+        icon={Heading1}
+        onClick={() => onAction("heading1")}
+      />
+      <ToolbarButton
+        label="Heading 2"
+        icon={Heading2}
+        onClick={() => onAction("heading2")}
+      />
+      <ToolbarButton
+        label="Heading 3"
+        icon={Heading3}
+        onClick={() => onAction("heading3")}
+      />
+      <ToolbarButton
+        label="Bulleted list (⌘⇧8)"
+        icon={List}
+        onClick={() => onAction("bulletList")}
+      />
+      <ToolbarButton
+        label="Numbered list (⌘⇧7)"
+        icon={ListOrdered}
+        onClick={() => onAction("numberedList")}
+      />
+      <ToolbarButton
+        label="To-do list"
+        icon={ListChecks}
+        onClick={() => onAction("todoList")}
+      />
+      <ToolbarButton
+        label="Quote"
+        icon={Quote}
+        onClick={() => onAction("quote")}
+      />
+      <ToolbarButton
+        label="Code block"
+        icon={FileCode2}
+        onClick={() => onAction("codeBlock")}
+      />
+      <ToolbarButton
+        label="Divider"
+        icon={Minus}
+        onClick={() => onAction("divider")}
+      />
+      <span className="mx-1 h-5 w-px bg-border" />
+      <ToolbarButton
+        label={entryId ? "Upload image" : "Create entry to upload images"}
+        icon={uploading ? LoaderCircle : ImagePlus}
+        onClick={() => onAction("image")}
+        disabled={uploading}
+        spinning={uploading}
+      />
+      <span className="flex-1" />
+      <ToolbarButton
+        label="Undo (⌘Z)"
+        icon={Undo2}
+        onClick={() => onAction("undo")}
+      />
+      <ToolbarButton
+        label="Redo (⌘⇧Z)"
+        icon={Redo2}
+        onClick={() => onAction("redo")}
+      />
+      <div className="ml-1 flex rounded-md border border-border bg-background p-0.5 text-xs">
+        <button
+          type="button"
+          className={`rounded px-2 py-1 ${mode === "write" ? "bg-secondary text-foreground" : "text-muted-foreground"}`}
+          onClick={() => onModeChange("write")}
+        >
+          Write
+        </button>
+        <button
+          type="button"
+          className={`rounded px-2 py-1 ${mode === "preview" ? "bg-secondary text-foreground" : "text-muted-foreground"}`}
+          onClick={() => onModeChange("preview")}
+        >
+          Preview
+        </button>
+      </div>
+    </div>
+  );
+});
+
 function imageFilesFromClipboard(event: ClipboardEvent<HTMLTextAreaElement>) {
   const files = Array.from(event.clipboardData.files).filter(file =>
     file.type.startsWith("image/")
@@ -107,7 +387,7 @@ export function MarkdownEditor({
   value,
   onChangeAction,
   entryId,
-  images = [],
+  images = EMPTY_IMAGES,
   placeholder = "Write the ideas, steps, and questions worth revisiting…",
   minHeightClassName = "min-h-80",
 }: MarkdownEditorProps) {
@@ -117,11 +397,14 @@ export function MarkdownEditor({
     start: value.length,
     end: value.length,
   });
-  const historyRef = useRef({
+  const historyRef = useRef<History>({
     current: value,
-    undo: [] as HistoryItem[],
-    redo: [] as HistoryItem[],
+    undo: [],
+    redo: [],
+    typingSince: 0,
+    typingInserts: true,
   });
+  const composingRef = useRef(false);
   const linkSelectionRef = useRef<Selection | null>(null);
   const [mode, setMode] = useState<"write" | "preview">("write");
   const [availableImages, setAvailableImages] = useState(images);
@@ -143,36 +426,68 @@ export function MarkdownEditor({
 
   useEffect(() => {
     if (historyRef.current.current !== value) {
-      historyRef.current = { current: value, undo: [], redo: [] };
+      historyRef.current = {
+        current: value,
+        undo: [],
+        redo: [],
+        typingSince: 0,
+        typingInserts: true,
+      };
       selectionRef.current = { start: value.length, end: value.length };
     }
   }, [value]);
 
+  /**
+   * Restore focus and the caret after a programmatic edit (toolbar, shortcuts, slash commands, links,
+   * image insertion, undo/redo). Plain typing never comes through here: the browser already owns the
+   * caret, and forcing focus/setSelectionRange would cost a layout per keystroke and break IME input.
+   */
   function setTextareaSelection(selection: Selection) {
     selectionRef.current = selection;
     requestAnimationFrame(() => {
       const textarea = textareaRef.current;
-      if (!textarea) return;
+      if (!textarea || composingRef.current) return;
       textarea.focus();
       textarea.setSelectionRange(selection.start, selection.end);
     });
   }
 
+  /**
+   * Apply an edit and record undo history. Programmatic edits are always their own undo step. Typing
+   * (`typing: true`) is coalesced: it extends the open step unless TYPING_STEP_MS passed since that step
+   * began, a line break was typed, or the edit switched between inserting and deleting.
+   */
   function commit(
     nextValue: string,
-    nextSelection: Selection = selectionRef.current
+    nextSelection: Selection = selectionRef.current,
+    typing = false
   ) {
     const history = historyRef.current;
     if (nextValue === history.current) return;
-    history.undo.push({
-      value: history.current,
-      selection: selectionRef.current,
-    });
-    if (history.undo.length > 100) history.undo.shift();
+    const now = performance.now();
+    const inserts = nextValue.length >= history.current.length;
+    const extendsTypingStep =
+      typing &&
+      history.typingSince > 0 &&
+      // an IME composition (romaji/pinyin -> converted text) is one undo step however long it takes
+      (composingRef.current ||
+        (now - history.typingSince < TYPING_STEP_MS &&
+          inserts === history.typingInserts &&
+          !(inserts && nextValue.charCodeAt(nextSelection.start - 1) === 10)));
+    if (!extendsTypingStep) {
+      history.undo.push({
+        value: history.current,
+        selection: selectionRef.current,
+      });
+      history.typingSince = typing ? now : 0;
+      history.typingInserts = inserts;
+    }
     history.redo = [];
     history.current = nextValue;
+    if (!extendsTypingStep) trimHistory(history);
     onChangeAction(nextValue);
-    setTextareaSelection(nextSelection);
+    if (typing) selectionRef.current = nextSelection;
+    else setTextareaSelection(nextSelection);
   }
 
   function updateSelection(target: HTMLTextAreaElement) {
@@ -187,7 +502,12 @@ export function MarkdownEditor({
       start: event.target.selectionStart,
       end: event.target.selectionEnd,
     };
-    commit(event.target.value, nextSelection);
+    // a paste or drop is its own undo step, never merged with the typing around it
+    const inputType = (event.nativeEvent as InputEvent).inputType ?? "";
+    const pasted = inputType === "insertFromPaste" || inputType === "insertFromDrop";
+    if (pasted) historyRef.current.typingSince = 0;
+    commit(event.target.value, nextSelection, true);
+    if (pasted) historyRef.current.typingSince = 0;
 
     const line = currentLine(event.target.value, nextSelection.start).value;
     const match = /^\/([^\n]*)$/.exec(line);
@@ -391,110 +711,40 @@ export function MarkdownEditor({
     }
   }
 
-  const slashCommands: SlashCommand[] = useMemo(
-    () => [
-      {
-        label: "Text",
-        description: "Continue with a plain paragraph",
-        terms: "text paragraph",
-        icon: Heading1,
-        run: () => replaceSlashCommand(""),
-      },
-      {
-        label: "Heading 1",
-        description: "Large section heading",
-        terms: "heading h1 title",
-        icon: Heading1,
-        run: () => replaceSlashCommand("# ", 2),
-      },
-      {
-        label: "Heading 2",
-        description: "Medium section heading",
-        terms: "heading h2",
-        icon: Heading2,
-        run: () => replaceSlashCommand("## ", 3),
-      },
-      {
-        label: "Heading 3",
-        description: "Small section heading",
-        terms: "heading h3",
-        icon: Heading3,
-        run: () => replaceSlashCommand("### ", 4),
-      },
-      {
-        label: "To-do list",
-        description: "A Markdown task item",
-        terms: "todo task checkbox checklist",
-        icon: ListChecks,
-        run: () => replaceSlashCommand("- [ ] ", 6),
-      },
-      {
-        label: "Bulleted list",
-        description: "A simple list item",
-        terms: "bullet list unordered",
-        icon: List,
-        run: () => replaceSlashCommand("- ", 2),
-      },
-      {
-        label: "Numbered list",
-        description: "An ordered list item",
-        terms: "number list ordered",
-        icon: ListOrdered,
-        run: () => replaceSlashCommand("1. ", 3),
-      },
-      {
-        label: "Quote",
-        description: "Highlight a supporting thought",
-        terms: "quote callout",
-        icon: Quote,
-        run: () => replaceSlashCommand("> ", 2),
-      },
-      {
-        label: "Code block",
-        description: "A fenced code sample",
-        terms: "code snippet block",
-        icon: FileCode2,
-        run: () => replaceSlashCommand("```\n\n```", 4),
-      },
-      {
-        label: "Divider",
-        description: "A visual section break",
-        terms: "divider separator line",
-        icon: Minus,
-        run: () => replaceSlashCommand("---", 3),
-      },
-      {
-        label: "Upload image",
-        description: entryId
-          ? "Upload, paste, or drop a private image"
-          : "Create the entry before adding images",
-        terms: "image upload photo paste",
-        icon: ImagePlus,
-        run: () => {
-          replaceSlashCommand("");
-          if (entryId) fileInputRef.current?.click();
-          else setError("Create this entry first, then add images.");
-        },
-      },
-    ],
-    [entryId, value]
-  );
-
-  const visibleSlashCommands =
-    slashQuery === null
-      ? []
-      : slashCommands
-          .filter(command =>
+  // Recomputed only when the "/query" or entryId changes, never on ordinary keystrokes.
+  const visibleSlashCommands = useMemo(
+    () =>
+      slashQuery === null
+        ? NO_SLASH_COMMANDS
+        : SLASH_COMMANDS.filter(command =>
             `${command.label} ${command.terms}`
               .toLowerCase()
               .includes(slashQuery)
           )
-          .slice(0, 7);
+            .slice(0, 7)
+            .map(command =>
+              command.upload && !entryId
+                ? {
+                    ...command,
+                    description: "Create the entry before adding images",
+                  }
+                : command
+            ),
+    [slashQuery, entryId]
+  );
+
+  function runSlashCommand(command: SlashCommand) {
+    replaceSlashCommand(command.replacement, command.caret);
+    if (!command.upload) return;
+    if (entryId) fileInputRef.current?.click();
+    else setError("Create this entry first, then add images.");
+  }
 
   function undo() {
     const history = historyRef.current;
     const previous = history.undo.pop();
     if (!previous) return;
+    history.typingSince = 0;
     history.redo.push({
       value: history.current,
       selection: selectionRef.current,
@@ -508,6 +758,7 @@ export function MarkdownEditor({
     const history = historyRef.current;
     const next = history.redo.pop();
     if (!next) return;
+    history.typingSince = 0;
     history.undo.push({
       value: history.current,
       selection: selectionRef.current,
@@ -536,7 +787,8 @@ export function MarkdownEditor({
       }
       if (event.key === "Enter") {
         event.preventDefault();
-        visibleSlashCommands[slashIndex]?.run();
+        const command = visibleSlashCommands[slashIndex];
+        if (command) runSlashCommand(command);
         return;
       }
       if (event.key === "Escape") {
@@ -573,6 +825,59 @@ export function MarkdownEditor({
     }
   }
 
+  function runToolbarAction(action: ToolbarAction) {
+    switch (action) {
+      case "bold":
+        return wrapSelection("**", "**", "bold text");
+      case "italic":
+        return wrapSelection("_", "_", "italic text");
+      case "inlineCode":
+        return wrapSelection("`", "`", "code");
+      case "link":
+        return showLinkInput();
+      case "heading1":
+        return togglePrefix("# ");
+      case "heading2":
+        return togglePrefix("## ");
+      case "heading3":
+        return togglePrefix("### ");
+      case "bulletList":
+        return togglePrefix("- ");
+      case "numberedList":
+        return toggleNumberedList();
+      case "todoList":
+        return togglePrefix(
+          "- [ ] ",
+          line => /^- \[[ xX]\] /.test(line),
+          line => line.replace(/^- \[[ xX]\] /, "")
+        );
+      case "quote":
+        return togglePrefix("> ");
+      case "codeBlock":
+        return insertCodeBlock();
+      case "divider":
+        return insertDivider();
+      case "image":
+        if (entryId) fileInputRef.current?.click();
+        else setError("Create this entry first, then add images.");
+        return;
+      case "undo":
+        return undo();
+      case "redo":
+        return redo();
+    }
+  }
+
+  // Stable identity for the memoized toolbar; always dispatches to this render's handlers.
+  const toolbarActionRef = useRef(runToolbarAction);
+  useLayoutEffect(() => {
+    toolbarActionRef.current = runToolbarAction;
+  });
+  const onToolbarAction = useCallback(
+    (action: ToolbarAction) => toolbarActionRef.current(action),
+    []
+  );
+
   function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
     const files = imageFilesFromClipboard(event);
     if (!files.length) return;
@@ -591,103 +896,13 @@ export function MarkdownEditor({
 
   return (
     <div className="overflow-hidden rounded-lg border border-input bg-background shadow-xs">
-      <div className="flex flex-wrap items-center gap-0.5 border-b border-border bg-muted/30 px-2 py-1.5">
-        <ToolbarButton
-          label="Bold (⌘B)"
-          icon={Bold}
-          onClick={() => wrapSelection("**", "**", "bold text")}
-        />
-        <ToolbarButton
-          label="Italic (⌘I)"
-          icon={Italic}
-          onClick={() => wrapSelection("_", "_", "italic text")}
-        />
-        <ToolbarButton
-          label="Inline code"
-          icon={Code2}
-          onClick={() => wrapSelection("`", "`", "code")}
-        />
-        <ToolbarButton label="Add link" icon={Link2} onClick={showLinkInput} />
-        <span className="mx-1 h-5 w-px bg-border" />
-        <ToolbarButton
-          label="Heading 1"
-          icon={Heading1}
-          onClick={() => togglePrefix("# ")}
-        />
-        <ToolbarButton
-          label="Heading 2"
-          icon={Heading2}
-          onClick={() => togglePrefix("## ")}
-        />
-        <ToolbarButton
-          label="Heading 3"
-          icon={Heading3}
-          onClick={() => togglePrefix("### ")}
-        />
-        <ToolbarButton
-          label="Bulleted list (⌘⇧8)"
-          icon={List}
-          onClick={() => togglePrefix("- ")}
-        />
-        <ToolbarButton
-          label="Numbered list (⌘⇧7)"
-          icon={ListOrdered}
-          onClick={toggleNumberedList}
-        />
-        <ToolbarButton
-          label="To-do list"
-          icon={ListChecks}
-          onClick={() =>
-            togglePrefix(
-              "- [ ] ",
-              line => /^- \[[ xX]\] /.test(line),
-              line => line.replace(/^- \[[ xX]\] /, "")
-            )
-          }
-        />
-        <ToolbarButton
-          label="Quote"
-          icon={Quote}
-          onClick={() => togglePrefix("> ")}
-        />
-        <ToolbarButton
-          label="Code block"
-          icon={FileCode2}
-          onClick={insertCodeBlock}
-        />
-        <ToolbarButton label="Divider" icon={Minus} onClick={insertDivider} />
-        <span className="mx-1 h-5 w-px bg-border" />
-        <ToolbarButton
-          label={entryId ? "Upload image" : "Create entry to upload images"}
-          icon={uploading ? LoaderCircle : ImagePlus}
-          onClick={() =>
-            entryId
-              ? fileInputRef.current?.click()
-              : setError("Create this entry first, then add images.")
-          }
-          disabled={uploading}
-          spinning={uploading}
-        />
-        <span className="flex-1" />
-        <ToolbarButton label="Undo (⌘Z)" icon={Undo2} onClick={undo} />
-        <ToolbarButton label="Redo (⌘⇧Z)" icon={Redo2} onClick={redo} />
-        <div className="ml-1 flex rounded-md border border-border bg-background p-0.5 text-xs">
-          <button
-            type="button"
-            className={`rounded px-2 py-1 ${mode === "write" ? "bg-secondary text-foreground" : "text-muted-foreground"}`}
-            onClick={() => setMode("write")}
-          >
-            Write
-          </button>
-          <button
-            type="button"
-            className={`rounded px-2 py-1 ${mode === "preview" ? "bg-secondary text-foreground" : "text-muted-foreground"}`}
-            onClick={() => setMode("preview")}
-          >
-            Preview
-          </button>
-        </div>
-      </div>
+      <EditorToolbar
+        entryId={entryId}
+        uploading={uploading}
+        mode={mode}
+        onAction={onToolbarAction}
+        onModeChange={setMode}
+      />
       {linkOpen ? (
         <div className="flex flex-col gap-2 border-b border-border bg-muted/20 px-3 py-2 sm:flex-row">
           <Input
@@ -735,6 +950,19 @@ export function MarkdownEditor({
             value={value}
             onChange={onTextareaChange}
             onSelect={event => updateSelection(event.currentTarget)}
+            onCompositionStart={() => {
+              composingRef.current = true;
+              // a composition opens its own undo step: never merge it into typing from before a pause
+              historyRef.current.typingSince = 0;
+            }}
+            onCompositionEnd={() => {
+              // Safari sends the final composition input after compositionend: keep the step open for it,
+              // then close it so later typing does not join the composed text
+              setTimeout(() => {
+                composingRef.current = false;
+                historyRef.current.typingSince = 0;
+              }, 0);
+            }}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
             onDragOver={event => {
@@ -766,7 +994,7 @@ export function MarkdownEditor({
                     onMouseDown={(event: MouseEvent<HTMLButtonElement>) =>
                       event.preventDefault()
                     }
-                    onClick={command.run}
+                    onClick={() => runSlashCommand(command)}
                   >
                     <span className="grid size-8 place-items-center rounded border border-border bg-background">
                       <Icon className="size-4" />
@@ -810,4 +1038,3 @@ export function MarkdownEditor({
     </div>
   );
 }
-

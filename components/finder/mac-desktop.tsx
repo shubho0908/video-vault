@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Layers, Inbox } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
@@ -14,7 +14,8 @@ import { APPS, AppWindow, Dock, ORDER, useWindowManager, type AppId } from "./wi
 import { CalculatorApp, SettingsApp } from "./apps";
 import { WallLayer } from "./wall-layer";
 import { NotesApp } from "./notes-app";
-import { BatteryGlyph, BatteryPanel, ControlCenter, ControlGlyph, DatePanel, Popover, Spotlight, WifiGlyph, WifiPanel, useBattery, type Panel } from "./status";
+import { BatteryGlyph, BatteryPanel, ControlCenter, ControlGlyph, DatePanel, Dimmer, MenuClock, Popover, Spotlight, WifiGlyph, WifiPanel, useBattery, type Panel } from "./status";
+import { entryPreview } from "./entry-preview";
 import { ShortcutsOverlay } from "./shortcuts";
 import { thumb, type LibEntry, type Location, type useLibrary } from "./library";
 
@@ -24,6 +25,16 @@ type Menu = { x: number; y: number; items: MenuItem[] } | null;
 type MenuItem = { label: string; keys?: string; run?: () => void; disabled?: boolean } | "sep";
 
 const DRAG = "application/x-vault-entry";
+
+/** A callback whose identity never changes but always runs the latest closure (keeps memoized children memoized). */
+function useStable<A extends unknown[], R>(fn: (...a: A) => R): (...a: A) => R {
+  const ref = useRef(fn);
+  useLayoutEffect(() => void (ref.current = fn));
+  return useCallback((...a: A) => ref.current(...a), []);
+}
+const MemoNotes = memo(NotesApp);
+const MemoCalculator = memo(CalculatorApp);
+const MemoSettings = memo(SettingsApp);
 
 type TileActions = {
   focus: (id: string) => void;
@@ -117,7 +128,6 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
   };
   const [spot, setSpot] = useState(false);
   const [wifi, setWifi] = useState(true);
-  const [brightness, setBrightness] = useState(1);
   const [keys, setKeys] = useState<null | "sheet" | "hold">(null);
   const [modal, setModal] = useState<null | "about" | "logout" | "sleep" | "shutdown">(null);
   const battery = useBattery();
@@ -133,15 +143,15 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
   const [ctx, setCtx] = useState<Menu>(null);
   const [quick, setQuick] = useState<LibEntry | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
-  const [now, setNow] = useState("");
-
-  useEffect(() => {
-    const tick = () =>
-      setNow(new Date().toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).replace(/,/g, "").replace(/\s?(AM|PM)/, "\u202f$1"));
-    tick();
-    const t = setInterval(tick, 15000);
-    return () => clearInterval(t);
-  }, []);
+  const openEntry = useCallback(
+    (id: string, edit = false) => {
+      // the loading window paints this entry's title and poster on the first frame
+      const e = data.entries.find(x => x.id === id);
+      entryPreview.set(e ? { id: e.id, title: e.title, topic: e.topic, youtubeId: e.youtubeId } : null);
+      router.push(`/entries/${id}${edit ? "/edit" : ""}`);
+    },
+    [data.entries, router]
+  );
 
   const go = useCallback(
     (next: Location) => {
@@ -163,8 +173,11 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
     id === "all" ? "All Videos" : id === "unfiled" ? "Unfiled" : data.folders.find(f => f.id === id)?.name ?? "Folder";
   const inRoot = loc === "all";
   const q = query.trim().toLowerCase();
-  const entries = entriesIn(loc === "all" ? "all" : loc).filter(e => !q || e.title.toLowerCase().includes(q) || e.topic.toLowerCase().includes(q));
-  const folders = inRoot ? data.folders.filter(f => !q || f.name.toLowerCase().includes(q)) : [];
+  const entries = useMemo(
+    () => entriesIn(loc === "all" ? "all" : loc).filter(e => !q || e.title.toLowerCase().includes(q) || e.topic.toLowerCase().includes(q)),
+    [entriesIn, loc, q]
+  );
+  const folders = useMemo(() => (inRoot ? data.folders.filter(f => !q || f.name.toLowerCase().includes(q)) : []), [inRoot, data.folders, q]);
   const counts = useMemo(() => {
     const m = new Map<string, number>();
     data.memberships.forEach(x => m.set(x.playlistId, (m.get(x.playlistId) ?? 0) + 1));
@@ -183,7 +196,7 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
   const openSel = () => {
     if (!sel) return;
     if (sel.kind === "folder") go(sel.id);
-    else router.push(`/entries/${sel.id}`);
+    else openEntry(sel.id);
   };
 
   const moveTo = (entryId: string, toId: string | null, copy = false) => {
@@ -251,8 +264,9 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
   useEffect(() => {
     act.current = {
       focus: id => (wm.focus("finder"), setSel({ kind: "entry", id })),
-      select: id => setSel({ kind: "entry", id }),
-      open: id => router.push(`/entries/${id}`),
+      // warm the entry route (its loading window) as soon as a tile is picked, so a double-click opens instantly
+      select: id => (setSel({ kind: "entry", id }), router.prefetch(`/entries/${id}`)),
+      open: id => openEntry(id),
       menu: (id, x, y) => (setSel({ kind: "entry", id }), setCtx({ x, y, items: itemMenu({ kind: "entry", id }) })),
       dragStart: (id, dt) => (dt.setData(DRAG, id), (dt.effectAllowed = "copyMove"), setDragId(id)),
       dragEnd: () => setDragId(null),
@@ -260,7 +274,13 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
     };
   });
 
-  const dragWindow = (e: React.PointerEvent) => wm.drag("finder", e);
+  const { drag } = wm;
+  const dragWindow = useCallback((e: React.PointerEvent) => drag("finder", e), [drag]);
+  const dragNotes = useCallback((e: React.PointerEvent) => drag("notes", e), [drag]);
+  const dragCalc = useCallback((e: React.PointerEvent) => drag("calculator", e), [drag]);
+  const dragSettings = useCallback((e: React.PointerEvent) => drag("settings", e), [drag]);
+  const askLogout = useCallback(() => setModal("logout"), []);
+  const openDesktopFolder = useStable((id: string) => (wm.launch("finder"), go(id)));
   const signOut = () => authClient.signOut().then(() => router.push("/sign-in"));
 
   const itemMenu = (s: NonNullable<Sel>): MenuItem[] =>
@@ -272,9 +292,9 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
           { label: "Delete Folder…", run: () => setConfirm(s.id) },
         ]
       : [
-          { label: "Open", keys: "⌘↓", run: () => router.push(`/entries/${s.id}`) },
+          { label: "Open", keys: "⌘↓", run: () => openEntry(s.id) },
           { label: "Quick Look", keys: "Space", run: () => setQuick(data.entries.find(x => x.id === s.id) ?? null) },
-          { label: "Edit Notes", run: () => router.push(`/entries/${s.id}/edit`) },
+          { label: "Edit Notes", run: () => openEntry(s.id, true) },
           "sep",
           ...data.folders.map(f => ({ label: `Move to ${f.name}`, run: () => moveTo(s.id, f.id) } as MenuItem)),
           { label: "Remove from Folder", disabled: loc === "all" || loc === "unfiled", run: () => moveTo(s.id, null) },
@@ -349,9 +369,9 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
   const isDefaultView = loc === "unfiled";
 
   return (
-    <div className="fx fx-desktop" style={{ filter: brightness < 1 ? `brightness(${brightness})` : undefined }} onPointerDown={e => (setMenuBar(null), setCtx(null), setPanel(null), (e.target as HTMLElement).closest(".fx-window,.fx-dock") || wm.focus("finder"))}>
+    <div className="fx fx-desktop" onPointerDown={e => (setMenuBar(null), setCtx(null), setPanel(null), (e.target as HTMLElement).closest(".fx-window,.fx-dock") || wm.focus("finder"))}>
       <WallLayer kind="mac" />
-      <DesktopIcons folders={data.folders} onOpen={id => { wm.launch("finder"); go(id); }} />
+      <DesktopIcons folders={data.folders} onOpen={openDesktopFolder} />
       <div className="fx-menubar" onPointerDown={e => e.stopPropagation()}>
         <div>
           <button className="fx-mb-item" data-open={menuBar === "\u0000apple"} onClick={e => pick(menuBar === "\u0000apple" ? null : "\u0000apple", e)} onPointerEnter={e => menuBar && pick("\u0000apple", e)} aria-label="Apple menu"><AppleGlyph /></button>
@@ -376,7 +396,7 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
           <button className="fx-mb-item" data-open={panel === "wifi"} aria-label="Wi-Fi" onClick={() => (setMenuBar(null), setPanel(panel === "wifi" ? null : "wifi"))}><WifiGlyph off={!wifi} /></button>
           <button className="fx-mb-item" aria-label="Spotlight" onClick={() => (setMenuBar(null), setPanel(null), setSpot(true))}><SearchGlyph /></button>
           <button className="fx-mb-item" data-open={panel === "cc"} aria-label="Control Center" onClick={() => (setMenuBar(null), setPanel(panel === "cc" ? null : "cc"))}><ControlGlyph /></button>
-          <button className="fx-mb-item" data-open={panel === "date"} onClick={() => (setMenuBar(null), setPanel(panel === "date" ? null : "date"))} suppressHydrationWarning>{now}</button>
+          <MenuClock open={panel === "date"} onClick={() => (setMenuBar(null), setPanel(panel === "date" ? null : "date"))} />
         </div>
       </div>
       {typeof document !== "undefined" && createPortal(
@@ -390,7 +410,7 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
         {panel === "wifi" && <Popover right={118} width={280}><WifiPanel on={wifi} setOn={() => setWifi(!wifi)} openSettings={() => (setPanel(null), wm.launch("settings"))} /></Popover>}
         {panel === "cc" && (
           <Popover right={8} width={346} cc>
-            <ControlCenter dark={resolvedTheme === "dark"} setDark={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")} wifi={wifi} setWifi={() => setWifi(!wifi)} brightness={brightness} setBrightness={setBrightness} openSettings={() => (setPanel(null), wm.launch("settings"))} />
+            <ControlCenter dark={resolvedTheme === "dark"} setDark={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")} wifi={wifi} setWifi={() => setWifi(!wifi)} openSettings={() => (setPanel(null), wm.launch("settings"))} />
           </Popover>
         )}
       </div>, document.body)}
@@ -524,9 +544,9 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
           </section>
       </AppWindow>
 
-      <AppWindow id="notes" wm={wm}><NotesApp drag={e => wm.drag("notes", e)} /></AppWindow>
-      <AppWindow id="calculator" wm={wm} className="fx-calc-win"><CalculatorApp drag={e => wm.drag("calculator", e)} /></AppWindow>
-      <AppWindow id="settings" wm={wm}><SettingsApp userName={userName} drag={e => wm.drag("settings", e)} signOut={() => setModal("logout")} /></AppWindow>
+      <AppWindow id="notes" wm={wm}><MemoNotes drag={dragNotes} /></AppWindow>
+      <AppWindow id="calculator" wm={wm} className="fx-calc-win"><MemoCalculator drag={dragCalc} /></AppWindow>
+      <AppWindow id="settings" wm={wm}><MemoSettings userName={userName} drag={dragSettings} signOut={askLogout} /></AppWindow>
 
       <Dock wm={wm} />
 
@@ -535,7 +555,7 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
           data={data}
           close={() => setSpot(false)}
           openApp={id => wm.launch(id as AppId)}
-          openEntry={id => router.push(`/entries/${id}`)}
+          openEntry={openEntry}
           openFolder={id => (wm.launch("finder"), go(id))}
           searchFinder={q => (wm.launch("finder"), setQuery(q))}
         />
@@ -568,6 +588,8 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
           {modal === "shutdown" ? null : null}
         </div>
       )}
+
+      <Dimmer />
 
       {ctx && (
         <div className="fx-menu" style={{ left: ctx.x, top: ctx.y }} onPointerDown={e => e.stopPropagation()}>
@@ -636,7 +658,7 @@ const SearchGlyph = () => (
 );
 
 /** Desktop icons stack down the right edge like macOS; opening one launches Finder at that folder. */
-function DesktopIcons({ folders, onOpen }: { folders: { id: string; name: string }[]; onOpen: (id: string) => void }) {
+const DesktopIcons = memo(function DesktopIcons({ folders, onOpen }: { folders: { id: string; name: string }[]; onOpen: (id: string) => void }) {
   const [sel, setSel] = useState<string | null>(null);
   const list = [{ id: "all", name: "All Videos" }, ...folders.slice(0, 4)];
   return (
@@ -649,4 +671,4 @@ function DesktopIcons({ folders, onOpen }: { folders: { id: string; name: string
       ))}
     </div>
   );
-}
+});

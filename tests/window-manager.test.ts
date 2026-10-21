@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
 
-import { snapshotWindow } from "@/components/finder/genie";
+import { cloneBand, coolGenie, snapshotWindow, takeMinimize, warmGenie } from "@/components/finder/genie";
+import { vi } from "vitest";
 import { ORDER, raise, type Win, type Wins } from "@/components/finder/windows";
 
 const win = (z: number, open = true): Win => ({ open, min: false, zoomed: false, z, x: 0, y: 0 });
@@ -72,5 +73,64 @@ describe("snapshotWindow", () => {
     // the scroll offset is baked into the content, and the copy inherits visibility from its overlay
     expect((tpl.firstElementChild!.firstElementChild as HTMLElement).style.translate).toBe("0px -500px");
     expect(tpl.style.visibility).toBe("inherit");
+  });
+});
+
+describe("cloneBand", () => {
+  it("copies only what crosses the band's strip; everything else keeps its exact box, empty", () => {
+    Element.prototype.getBoundingClientRect = function () {
+      const r = rects.get(this) ?? { left: 0, top: 0, width: 0, height: 0 };
+      return { ...r, right: r.left + r.width, bottom: r.top + r.height, x: r.left, y: r.top, toJSON() {} } as DOMRect;
+    };
+    const el = document.createElement("div");
+    document.body.append(el);
+    rects.set(el, { left: 0, top: 0, width: 400, height: 1000 });
+    for (let i = 0; i < 10; i++) {
+      const row = document.createElement("div");
+      row.innerHTML = `<b>row ${i}</b>`;
+      el.append(row);
+      rects.set(row, { left: 0, top: i * 100, width: 400, height: 100 });
+      rects.set(row.firstElementChild!, { left: 0, top: i * 100, width: 50, height: 20 });
+    }
+    const tpl = snapshotWindow(el)!;
+    const band = cloneBand(tpl, 420, 480) as HTMLElement;
+    const rows = Array.from(band.children) as HTMLElement[];
+    expect(rows).toHaveLength(10);
+    expect(rows[4].textContent).toBe("row 4");
+    expect(rows[3].textContent).toBe("");
+    expect(rows[3].style.height).toBe("100px");
+    expect(rows[9].textContent).toBe("");
+    // the template itself is untouched (it is also the Dock thumbnail)
+    expect(tpl.textContent).toContain("row 9");
+  });
+});
+
+describe("warm genie", () => {
+  it("drops a prepared copy when the window changes (typing, DOM edits), so the click never shows stale content", async () => {
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => setTimeout(() => cb(performance.now()), 0));
+    Element.prototype.getBoundingClientRect = function () {
+      return { left: 0, top: 0, width: 300, height: 200, right: 300, bottom: 200, x: 0, y: 0, toJSON() {} } as DOMRect;
+    };
+    const host = document.createElement("div");
+    const el = document.createElement("div");
+    const ta = document.createElement("textarea");
+    el.append(ta);
+    host.append(el);
+    document.body.append(host);
+
+    warmGenie(el, "in");
+    const warm = takeMinimize(el);
+    expect(takeMinimize(el)).not.toBe(warm); // taken once: a second take builds anew
+
+    warmGenie(el, "in");
+    ta.value = "typed after hover";
+    ta.dispatchEvent(new Event("input", { bubbles: true }));
+    const after = takeMinimize(el);
+    const { thumb } = await after;
+    // rebuilt from the current window: the flattened textarea carries the new text
+    expect(thumb?.textContent).toContain("typed after hover");
+    coolGenie(el, "in");
+    await new Promise(r => setTimeout(r, 50));
+    vi.unstubAllGlobals();
   });
 });

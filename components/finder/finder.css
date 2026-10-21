@@ -711,7 +711,10 @@
 .fx-rz-ne, .fx-rz-nw, .fx-rz-se, .fx-rz-sw { width: 24px; height: 24px; }
 .fx-rz-ne { top: 0; right: 0; } .fx-rz-nw { top: 0; left: 0; } .fx-rz-se { bottom: 0; right: 0; } .fx-rz-sw { bottom: 0; left: 0; }
 .fx-window[data-zoomed="true"] .fx-rz { display: none; }
-.fx-genie-clone { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; animation: none !important; box-shadow: none !important; }
+/* The copy itself must not keep the window's will-change: transform. Inside each genie band that hint made
+   a full-window-size composited layer (plus overlap layers), ~20 layers per band and ~480 in total, which
+   Chrome re-rasterised on every frame of the warp: the lag, and the strips with wallpaper showing through. */
+.fx-genie-clone { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; animation: none !important; box-shadow: none !important; will-change: auto !important; contain: paint; }
 /* the genie bands and Dock thumbnails are static copies: no blur, filter, animation or layer hint inside them */
 .fx-genie-clone *, .fx-genie-clone *::before, .fx-genie-clone *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; filter: none !important; animation: none !important; transition: none !important; will-change: auto !important; }
 
@@ -873,3 +876,12 @@
 .fx-ew-date .fx-skel-line { display: inline-block; margin: 0; height: 10px; }
 .fx-ew-skel .fx-ew-group, .fx-ew-skel .fx-ew-video:empty { background: var(--fx-sel-icon); }
 @media (prefers-reduced-motion: reduce) { .fx-ios-dim { transition: none; } }
+
+/* Genie bands and Dock thumbnails are static copies of a window. These overrides must beat every other
+   !important rule (e.g. the toolbar pills' backdrop blur above), hence the extra .fx in the selector: a
+   copied blur forced its own composited layer plus overlap layers in each of the ~24 bands and had to
+   re-blur through a perspective warp on every frame. */
+.fx .fx-genie-clone, .fx .fx-genie-clone *, .fx .fx-genie-clone *::before, .fx .fx-genie-clone *::after {
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important; filter: none !important;
+  animation: none !important; transition: none !important; will-change: auto !important;
+}

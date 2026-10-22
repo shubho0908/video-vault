@@ -8,7 +8,6 @@ import { SFChevronLeft, SFCompose, SFTrash } from "./sf";
 
 type Drag = (e: React.PointerEvent) => void;
 
-/** Apple Notes drops a note you left empty. */
 function useDiscardEmpty(id: string | null | undefined, notes: Note[]) {
   const prev = useRef<string | null | undefined>(undefined);
   const live = useRef(notes);

@@ -3,7 +3,6 @@
 import { useSyncExternalStore } from "react";
 import { notes as seed } from "@/lib/notes-content";
 
-/** Local-only notes. Source of truth in memory, mirrored to localStorage (debounced). */
 export type Note = { id: string; body: string; updated: number };
 
 const KEY = "vv-notes-v1";
@@ -87,7 +86,6 @@ export const notePreview = (body: string) => {
   const ls = body.split("\n").filter(l => l.trim());
   return ls[1]?.replace(/^[#>*\-\s]+/, "").trim().slice(0, 60) || "No additional text";
 };
-// Intl formatters are expensive to build; the note list formats one date per row on every render.
 const longDate = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" });
 const shortDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
 const shortTime = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" });

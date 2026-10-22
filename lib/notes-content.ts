@@ -1,4 +1,3 @@
-/** Seed for the Notes app: shown on first run, then edits live in localStorage. */
 export const notes = [
   {
     id: "about",

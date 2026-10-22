@@ -2,7 +2,6 @@
 
 import { useRef, type CSSProperties, type RefObject } from "react";
 
-/** Shared macOS window geometry: zoom rectangle and edge/corner resizing. */
 export const MENU_H = 28;
 export const ZOOM_STYLE: CSSProperties = { left: 0, top: MENU_H, width: "100vw", height: "calc(100vh - 112px)", translate: "0px 0px" };
 
@@ -12,7 +11,6 @@ const DIRS: Dir[] = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
 const CURSOR: Record<Dir, string> = { n: "ns-resize", s: "ns-resize", e: "ew-resize", w: "ew-resize", ne: "nesw-resize", sw: "nesw-resize", nw: "nwse-resize", se: "nwse-resize" };
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi));
 
-/** Eight invisible handles around the window. Moves write styles directly (no React render per pointermove) and commit once on release. */
 export function ResizeHandles({ frame, base, min, onCommit }: {
   frame: RefObject<HTMLElement | null>;
   base: () => { x: number; y: number };
@@ -66,7 +64,6 @@ export function ResizeHandles({ frame, base, min, onCommit }: {
   );
 }
 
-/** keep a dragged window usable: below the menu bar, above the dock, never fully off screen sideways */
 export function clampDrag(r0: DOMRect, dx: number, dy: number): [number, number] {
   const vw = window.innerWidth, vh = window.innerHeight;
   const cl = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi));
@@ -75,10 +72,7 @@ export function clampDrag(r0: DOMRect, dx: number, dy: number): [number, number]
   return [ndx, ndy];
 }
 
-/**
- * Move a window by its title bar. The position is written straight to the element's `translate`
- * on every pointermove (no React render per frame) and committed once when the drag ends.
- */
+// Write live positions to the DOM; commit to React only when the drag ends.
 export function startWindowDrag(
   e: React.PointerEvent,
   win: HTMLElement | null,
@@ -110,7 +104,6 @@ export function startWindowDrag(
   handle.addEventListener("lostpointercapture", up);
 }
 
-/** CSS cubic-bezier(x1,y1,x2,y2) as a function of time. */
 function bezier(x1: number, y1: number, x2: number, y2: number) {
   const f = (a: number, b: number, t: number) => 3 * a * t * (1 - t) ** 2 + 3 * b * t * t * (1 - t) + t ** 3;
   return (x: number) => {
@@ -129,17 +122,12 @@ const ZOOM_MS = 420;
 const ZOOM_STEPS = 28;
 const FLIP_ID = "fx-flip";
 
-/**
- * Zoom (green button) animation, compositor-only. The window is already at its final size; the frame
- * is scaled from the old box to the new one while each child gets the inverse scale, so the content
- * keeps its real size (no squashed text) and is revealed or covered by the growing or shrinking frame.
- * Nothing is laid out or repainted per frame, unlike animating left/top/width/height.
- */
+// FLIP the frame and inverse-scale its children to avoid reflow and stretched text during zoom.
 export function flipZoom(el: HTMLElement | null, from: DOMRect | null | undefined) {
   if (!el || !from) return;
   const kids = (Array.from(el.children) as HTMLElement[]).filter(k => !k.classList.contains("fx-rz"));
   for (const n of [el, ...kids]) for (const a of n.getAnimations()) if (a.id === FLIP_ID) a.cancel();
-  // an open pop still running would make the target box look smaller than it is: jump it to its end first
+  // Finish the open animation before measuring the zoom target.
   for (const a of el.getAnimations()) if (a.id !== FLIP_ID && a.playState === "running") a.finish();
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const to = el.getBoundingClientRect();
@@ -155,7 +143,7 @@ export function flipZoom(el: HTMLElement | null, from: DOMRect | null | undefine
     frame.push({ offset: t, transformOrigin: "0 0", transform: `translate(${dx0 * (1 - p)}px, ${dy0 * (1 - p)}px) scale(${sx}, ${sy})` });
     inverse.push({ offset: t, transform: `scale(${1 / sx}, ${1 / sy})` });
   }
-  // measure every child before anything starts moving
+  // Read all geometry before starting any animation.
   const origins = kids.map(k => {
     const r = k.getBoundingClientRect();
     return `${to.left - r.left}px ${to.top - r.top}px`;

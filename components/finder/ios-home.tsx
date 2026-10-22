@@ -97,7 +97,6 @@ export function IosHome({ lib, userName }: { lib: Lib; userName: string }) {
   const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(closeTimer.current), []);
   const launch = (id: AppId, el: HTMLElement) => {
-    // a close still in flight must not shut the app that is opening now
     clearTimeout(closeTimer.current);
     rect.current = el.getBoundingClientRect();
     setPhase("from"); setOpen(id);
@@ -118,7 +117,6 @@ export function IosHome({ lib, userName }: { lib: Lib; userName: string }) {
     ? { transform: `translate(${r.left + r.width / 2 - innerWidth / 2}px, ${r.top + r.height / 2 - innerHeight / 2}px) scale(${r.width / innerWidth}, ${r.height / innerHeight})`, borderRadius: 14 / (r.width / innerWidth), opacity: phase === "closing" ? 0 : 1 }
     : { transform: "none", borderRadius: 0, opacity: 1 };
 
-  // recomputed on every (rare) render, as before, so the widget follows the date across midnight
   const d = new Date();
   const today = { weekday: d.toLocaleDateString(undefined, { weekday: "long" }).toUpperCase(), day: d.getDate(), month: d.toLocaleDateString(undefined, { month: "long", year: "numeric" }) };
   const DECOR = ["photos", "safari", "maps", "music", "books", "app-store", "home", "find-my"];
@@ -133,7 +131,6 @@ export function IosHome({ lib, userName }: { lib: Lib; userName: string }) {
     <div className="fx fx-ios-home" data-open={open ? phase : undefined}>
       <div className="fx-ios-wall"><WallLayer kind="ios" /></div>
       <div className="fx-ios-sb" data-app={open && phase === "open" ? (open === "calc" ? "dark" : "app") : undefined}><StatusBar /></div>
-      {/* transform only: a blur filter here re-blurred the whole home screen (and its glass widgets) every frame */}
       <div className="fx-ios-springboard" style={{ transform: open && phase === "open" ? "scale(.92)" : "none" }}>
         <div className="fx-ios-widgets">
           <div className="fx-ios-wg fx-ios-wg-date"><b>{today.weekday}</b><span>{today.day}</span><em>{today.month}</em></div>

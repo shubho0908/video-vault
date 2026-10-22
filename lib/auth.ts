@@ -41,8 +41,6 @@ export const auth = betterAuth({
     },
   },
   session: {
-    // Keep a signed copy of the session in a short-lived cookie so getSession() can skip the database
-    // lookup on most requests. signOut expires this cookie along with the session token.
     cookieCache: { enabled: true, maxAge: 5 * 60 },
   },
   plugins: [nextCookies()],

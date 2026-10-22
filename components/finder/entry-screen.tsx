@@ -6,9 +6,7 @@ import { getEntryForOwner, getImagesForEntry } from "@/lib/journal-cache";
 import { requireOwner } from "@/lib/session";
 import { EntryScene, type SceneMode } from "./entry-scene";
 
-/** Server half: same owner check and queries as the original entry pages, then hands the data to the in-shell scene. */
 export async function EntryScreen({ mode, entryId, standalone }: { mode: SceneMode; entryId?: string; standalone: boolean }) {
-  // Hint the browser during SSR so the poster thumbnail and the player origin are warm before hydration.
   preconnect("https://i.ytimg.com");
   preconnect("https://www.youtube-nocookie.com");
   const session = await requireOwner();

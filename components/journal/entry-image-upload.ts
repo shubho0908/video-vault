@@ -30,7 +30,6 @@ function validateImage(file: File) {
   return null;
 }
 
-/** Uploads directly to ImageKit, then records ownership server-side before exposing the image to the editor. */
 export async function uploadEntryImage(
   entryId: string,
   file: File

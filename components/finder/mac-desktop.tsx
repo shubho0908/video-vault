@@ -26,7 +26,6 @@ type MenuItem = { label: string; keys?: string; run?: () => void; disabled?: boo
 
 const DRAG = "application/x-vault-entry";
 
-/** A callback whose identity never changes but always runs the latest closure (keeps memoized children memoized). */
 function useStable<A extends unknown[], R>(fn: (...a: A) => R): (...a: A) => R {
   const ref = useRef(fn);
   useLayoutEffect(() => void (ref.current = fn));
@@ -47,7 +46,6 @@ type TileActions = {
 };
 type ActRef = { current: TileActions };
 
-/** Memoized so selecting/dragging one item doesn't re-render every thumbnail in a large library. */
 const EntryTile = memo(function EntryTile({ e, selected, dragging, act }: { e: LibEntry; selected: boolean; dragging: boolean; act: ActRef }) {
   return (
     <div
@@ -145,7 +143,6 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
   const [confirm, setConfirm] = useState<string | null>(null);
   const openEntry = useCallback(
     (id: string, edit = false) => {
-      // the loading window paints this entry's title and poster on the first frame
       const e = data.entries.find(x => x.id === id);
       entryPreview.set(e ? { id: e.id, title: e.title, topic: e.topic, youtubeId: e.youtubeId } : null);
       router.push(`/entries/${id}${edit ? "/edit" : ""}`);
@@ -258,13 +255,10 @@ export function MacDesktop({ lib, userName }: { lib: Lib; userName: string }) {
     return () => window.removeEventListener("keydown", f);
   }, []);
 
-  // Stable handler bag for the memoized tiles: they read the latest closures at event time, so a
-  // selection or drag change re-renders only the tiles whose own props changed, not the whole grid.
   const act = useRef<TileActions>(null!);
   useEffect(() => {
     act.current = {
       focus: id => (wm.focus("finder"), setSel({ kind: "entry", id })),
-      // warm the entry route (its loading window) as soon as a tile is picked, so a double-click opens instantly
       select: id => (setSel({ kind: "entry", id }), router.prefetch(`/entries/${id}`)),
       open: id => openEntry(id),
       menu: (id, x, y) => (setSel({ kind: "entry", id }), setCtx({ x, y, items: itemMenu({ kind: "entry", id }) })),
@@ -657,7 +651,6 @@ const SearchGlyph = () => (
   </svg>
 );
 
-/** Desktop icons stack down the right edge like macOS; opening one launches Finder at that folder. */
 const DesktopIcons = memo(function DesktopIcons({ folders, onOpen }: { folders: { id: string; name: string }[]; onOpen: (id: string) => void }) {
   const [sel, setSel] = useState<string | null>(null);
   const list = [{ id: "all", name: "All Videos" }, ...folders.slice(0, 4)];

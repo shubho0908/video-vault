@@ -14,8 +14,6 @@ export function ThemeToggle() {
     setMounted(true);
   }, []);
 
-  // Keep the server and initial client render identical; `resolvedTheme` can
-  // read a persisted browser preference only after hydration.
   const isDark = !mounted || resolvedTheme !== "light";
   const label = isDark ? "Switch to light theme" : "Switch to dark theme";
 

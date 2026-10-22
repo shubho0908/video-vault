@@ -29,7 +29,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-// Playlist membership is many-to-many, so the same entry may appear in several playlists.
 type PlaylistEntryChoice = {
   id: string;
   title: string;

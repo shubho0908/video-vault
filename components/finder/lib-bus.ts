@@ -1,10 +1,5 @@
 import type { LibEntry } from "./library";
 
-/**
- * Tiny shared store so the entry window (rendered in its own route slot) can show
- * creates, edits and deletes in the Finder on the same frame, before the server answers.
- * Module state lives for the browser session only; server refreshes prune it.
- */
 type S = { added: LibEntry[]; removed: ReadonlySet<string>; patched: Record<string, Partial<LibEntry>>; error: string | null };
 const empty: S = { added: [], removed: new Set(), patched: {}, error: null };
 let s: S = empty;
@@ -33,7 +28,6 @@ export const bus = {
   },
   fail: (error: string) => set({ error }),
   clearError: () => s.error && set({ error: null }),
-  /** Called when fresh server data arrives: drop whatever the server now confirms. */
   prune: (entries: LibEntry[]) => {
     if (s === empty || (!s.added.length && !s.removed.size && !Object.keys(s.patched).length)) return;
     const ids = new Set(entries.map(e => e.id));

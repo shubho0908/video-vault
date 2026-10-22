@@ -8,8 +8,7 @@ import { requireOwner } from "@/lib/session";
 
 export default async function DashboardPage() {
   const session = await requireOwner();
-  // The Finder only renders id/title/topic/youtubeId and folder id/name. Fetch and cache exactly that:
-  // never notes_markdown (up to 50 KB per row, which would also blow past the 2 MB data-cache item limit).
+  // Keep large notes out of library queries and cached dashboard payloads.
   const [entries, folders, memberships] = await Promise.all([
     listEntryChoices(session.user.id),
     listFolders(session.user.id),

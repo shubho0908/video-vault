@@ -12,7 +12,6 @@ import { thumb, type LibEntry, type Location, type useLibrary } from "./library"
 type Lib = ReturnType<typeof useLibrary>;
 type Sheet = { kind: "new" } | { kind: "rename"; id: string } | { kind: "entry"; entry: LibEntry } | null;
 
-/** Interruptible bottom sheet: follows the finger 1:1, projects the release velocity, springs shut or back. */
 function BottomSheet({ children, close }: { children: React.ReactNode; close: () => void }) {
   const el = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y: number; t: number; v: number } | null>(null);
@@ -78,7 +77,6 @@ export function IosLibrary({ lib }: { lib: Lib }) {
     clearTimeout(popTimer.current);
     popTimer.current = setTimeout(() => (setStack(s => s.slice(0, -1)), setLeaving(false)), 330);
   };
-  // one pass over the memberships instead of one filter per folder row on every render
   const counts = useMemo(() => {
     const m = new Map<string, number>();
     data.memberships.forEach(x => m.set(x.playlistId, (m.get(x.playlistId) ?? 0) + 1));
@@ -91,7 +89,6 @@ export function IosLibrary({ lib }: { lib: Lib }) {
       <div key={e.id} className="fx-ios-row" style={{ padding: 0 }}>
         <Link
           href={`/entries/${e.id}`}
-          // a long library would otherwise prefetch every visible row; warm only the one being touched
           prefetch={false}
           onPointerDown={() => router.prefetch(`/entries/${e.id}`)}
           onClick={() => entryPreview.set({ id: e.id, title: e.title, topic: e.topic, youtubeId: e.youtubeId })}

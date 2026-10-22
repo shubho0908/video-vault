@@ -13,11 +13,7 @@ export function createNoteImageMarkdown(imageId: string, altText: string) {
   return `![${safeAltText}](${ENTRY_IMAGE_URL_PREFIX}${imageId})`;
 }
 
-/**
- * Markdown persists image IDs rather than signed URLs. This keeps time-limited
- * ImageKit signatures out of the database and only resolves images owned by the
- * entry currently being rendered.
- */
+// Store image IDs, not expiring signed URLs; resolve only images owned by the current entry.
 export function resolveNoteImageReferences(
   markdown: string,
   images: NoteImageReference[]
@@ -37,7 +33,6 @@ export function resolveNoteImageReferences(
   );
 }
 
-/** Collapse markdown to a single-line plain-text excerpt for list previews. */
 export function noteExcerpt(markdown: string, max = 160): string {
   const plain = markdown
     .replace(/```[\s\S]*?```/g, " ")

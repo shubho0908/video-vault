@@ -13,12 +13,7 @@ import {
 
 export * from "@/lib/wallpaper-data";
 
-/*
- * Source of truth: localStorage (read synchronously). The *painted* wallpaper is owned by CSS:
- * the head boot script (lib/wallpaper-boot.ts) publishes the saved choice on <html> before first paint
- * and finder.css maps it onto --fx-wall. React never has to "apply" the saved choice on load, so there is
- * nothing to flash. WallLayer only animates *changes* made while the page is open.
- */
+// CSS paints the saved wallpaper before hydration; React only animates later changes.
 const cache: Partial<Record<WallKind, string>> = {};
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach(l => l());
@@ -39,11 +34,9 @@ function read(k: WallKind): string {
       const s = localStorage.getItem(wallStorageKey(k));
       if (isWallId(k, s)) v = s;
       else if (s) {
-        // a wallpaper that no longer exists: heal the store so the boot script stops painting it
         localStorage.removeItem(wallStorageKey(k));
         localStorage.removeItem(wallTintKey(k));
       }
-      // choices saved before tints existed: add the tint once so later loads paint instantly
       if (v !== "default" && !localStorage.getItem(wallTintKey(k))) persistTint(k, v);
     } catch {}
     cache[k] = v;
@@ -59,13 +52,11 @@ export function setWallpaper(k: WallKind, id: string) {
   notify();
 }
 
-/** What <html> (and therefore the CSS) is painting right now. */
 export function paintedWallpaper(k: WallKind): string {
   const v = document.documentElement.getAttribute(wallAttr(k));
   return isWallId(k, v) ? v : "default";
 }
 
-/** Flip the CSS-painted wallpaper. WallLayer calls this once its crossfade has fully covered the old one. */
 export function paintWallpaper(k: WallKind, id: string) {
   const el = document.documentElement;
   const url = wallUrl(k, id, innerWidth, devicePixelRatio || 1);
@@ -81,7 +72,6 @@ export function paintWallpaper(k: WallKind, id: string) {
 let wired = false;
 const subscribe = (cb: () => void) => {
   listeners.add(cb);
-  // pick up a choice made in another tab
   if (!wired && typeof window !== "undefined") {
     wired = true;
     addEventListener("storage", e => {
@@ -96,11 +86,7 @@ const subscribe = (cb: () => void) => {
   return () => void listeners.delete(cb);
 };
 
-/**
- * The server snapshot only matters for markup comparison during hydration. Nothing rendered from this
- * value in the initial HTML depends on it, so on the client we answer with the real stored value
- * immediately: there is no "default, then the real choice" render pass.
- */
+// The snapshot does not affect server markup; read stored values immediately to avoid a default-image flash.
 export function useWallpaper(k: WallKind): string {
   return useSyncExternalStore(
     subscribe,

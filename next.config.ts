@@ -1,8 +1,6 @@
 import type { NextConfig } from "next";
 
-// public/ files are served with max-age=0 by default, which forces a revalidation round trip for the
-// wallpaper (the LCP image) and every icon on each visit. These filenames are stable, so cache them
-// for a day and let stale copies serve for a week while the browser refreshes in the background.
+// Cache stable wallpaper and icon URLs; permit background revalidation.
 const staticAsset = [
   {
     key: "Cache-Control",

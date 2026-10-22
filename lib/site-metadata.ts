@@ -11,9 +11,7 @@ export const siteMetadata = {
     "Shubhojeet's private collection of unlisted YouTube explanations, notes, and references. Built for learning that lasts.",
   openGraph: {
     type: "website",
-    url: "/",
+    url: "./",
   },
-  // The opengraph-image.jpg file convention supplies the image, dimensions, MIME type and alt text.
-  // Next.js also derives the Twitter large-image card and route-specific titles/descriptions from it.
   robots: { index: false, follow: false },
 } satisfies Metadata;

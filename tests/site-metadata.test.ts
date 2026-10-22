@@ -9,7 +9,7 @@ describe("social sharing metadata", () => {
     expect(siteMetadata.metadataBase?.href).toBe(
       "https://videos.shubhojeet.com/"
     );
-    expect(siteMetadata.openGraph).toMatchObject({ type: "website", url: "/" });
+    expect(siteMetadata.openGraph).toMatchObject({ type: "website", url: "./" });
     expect(new URL("/", siteMetadata.metadataBase!).href).toBe(
       "https://videos.shubhojeet.com/"
     );

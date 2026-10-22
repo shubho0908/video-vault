@@ -91,7 +91,6 @@ export async function getEntryForOwner(ownerId: string, entryId: string) {
   return rows[0] ?? null;
 }
 
-/** Ownership check that reads only the id, not the full row (notes_markdown can be up to 50 KB). */
 async function ownsEntry(ownerId: string, entryId: string) {
   const rows = await db
     .select({ id: videoEntries.id })
@@ -232,7 +231,6 @@ export async function listPlaylists(ownerId: string) {
   }));
 }
 
-/** Id + name only, newest first. The Finder needs nothing else, so skip the count/preview queries. */
 export async function listFolders(ownerId: string) {
   return db
     .select({ id: playlists.id, name: playlists.name })
@@ -410,11 +408,6 @@ export async function listMemberships(ownerId: string) {
     .orderBy(playlistEntries.playlistId, playlistEntries.position);
 }
 
-/**
- * One command for Finder drag/drop, copy and "Move to...": remove from
- * `fromId` (if any) and add to `toId` (if any), atomically. Nothing else in
- * either folder changes.
- */
 export async function placeEntry(
   ownerId: string,
   input: { entryId: string; fromId: string | null; toId: string | null }

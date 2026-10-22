@@ -5,10 +5,7 @@ import "@/app/globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { wallpaperBootScript } from "@/lib/wallpaper-boot";
 
-// The Finder/iOS UI (every route) renders in system fonts via `.fx`, so none of these faces is needed for
-// first paint. They only show up in secondary UI: Geist in Radix dialog portals outside `.fx`, Geist Mono
-// in the notes editor and code blocks, Newsreader in the editor preview's headings. Don't preload them;
-// the @font-face rules stay, so the browser still fetches a face (with swap) as soon as it is rendered.
+// System fonts cover first paint; load these secondary UI fonts on demand.
 const sans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -46,11 +43,6 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/*
-          Paint the saved wallpaper on the very first frame: this sync script copies the stored choice onto
-          <html data-wall-*> (finder.css does the painting) and preloads the exact image for this
-          viewport, theme and choice. It must stay inline and blocking, like the next-themes class script.
-        */}
         <script dangerouslySetInnerHTML={{ __html: wallpaperBootScript() }} />
       </head>
       <body

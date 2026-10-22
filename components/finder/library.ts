@@ -23,7 +23,6 @@ export type LibraryData = {
   folders: LibFolder[];
   memberships: Membership[];
 };
-/** "all" and "unfiled" are the two built-in locations; everything else is a playlist id. */
 export type Location = "all" | "unfiled" | (string & {});
 
 type Result = { ok: boolean; error?: string };
@@ -44,23 +43,16 @@ export const serverCommands: Commands = {
 type Op = { apply: (d: LibraryData) => LibraryData };
 let tmpN = 0;
 
-/**
- * Optimistic library state. `base` is what the server last confirmed; every in-flight
- * mutation is an op layered on top of it, so the UI updates on the same frame and a
- * failed op is dropped on its own (other in-flight ops are untouched). New folders
- * get a client id that stays stable for the session; server calls wait for the real
- * id when a create is still in flight.
- */
+// Layer pending operations over confirmed state; rolling back one operation must preserve the others.
 export function useLibrary(initial: LibraryData, commands: Commands = serverCommands) {
   const [base, setBase] = useState(initial);
   const [ops, setOps] = useState<Op[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const real = useRef(new Map<string, string>()); // client id -> server id
+  const real = useRef(new Map<string, string>());
   const creating = useRef(new Map<string, Promise<string | null>>());
-  const ui = useRef(new Map<string, string>()); // server id -> client id
+  const ui = useRef(new Map<string, string>());
   const shared = useSyncExternalStore(bus.subscribe, bus.get, bus.get);
 
-  // a server refresh (after saving or deleting an entry) hands down fresh data
   const first = useRef(true);
   useEffect(() => {
     if (first.current) return void (first.current = false);
@@ -89,7 +81,6 @@ export function useLibrary(initial: LibraryData, commands: Commands = serverComm
     call()
       .catch(() => ({ ok: false, error: "Something went wrong." }))
       .then(res => {
-        // confirmed ops fold into base in the same batch that removes them, so nothing flickers
         if (res.ok) setBase(apply);
         else setError(res.error ?? "Something went wrong.");
         setOps(o => o.filter(x => x !== op));
@@ -168,7 +159,6 @@ export function useLibrary(initial: LibraryData, commands: Commands = serverComm
       }
     );
 
-  /** Finder move (from + to), copy (to only) or remove (from only). */
   const place = (entryId: string, fromId: string | null, toId: string | null) =>
     run(
       d => ({
@@ -193,7 +183,6 @@ export function useLibrary(initial: LibraryData, commands: Commands = serverComm
 export const thumb = (youtubeId: string) =>
   `https://i.ytimg.com/vi/${youtubeId}/mqdefault.jpg`;
 
-/** Apple-style spring (response/damping ratio) sampled into a CSS linear() easing. */
 export function spring(response: number, damping: number, steps = 40) {
   const w = (2 * Math.PI) / response;
   const z = damping;

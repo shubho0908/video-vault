@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// Static imports required: vi.mock hoisting must intercept app actions before module load.
+// Static imports let vi.mock intercept app actions before module evaluation.
 (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 import { createElement } from "react";
 import { act } from "react";
@@ -36,7 +36,6 @@ const entries = [
   { id: "entry-b", title: "Beta", topic: "JavaScript", youtubeId: "bbb" },
 ];
 
-// Dialog content renders into a document.body portal, not the mounted container.
 function findButton(title: string) {
   return [...document.querySelectorAll("button")].find(button =>
     button.textContent?.includes(title)

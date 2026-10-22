@@ -74,8 +74,7 @@ async function cached<T>(
   return reviveCacheValue(encoded) as T;
 }
 
-// The authenticated owner ID is part of every key and every invalidation tag.
-// Auth itself remains request-scoped and is never cached here.
+// Include the owner in all cache keys and tags; authentication stays request-scoped.
 export function listEntries(ownerId: string, query = "", topic = "") {
   return cached(
     ["entries", ownerId, query, topic],

@@ -11,12 +11,7 @@ import { APPS, ORDER, type AppId } from "./windows";
 
 export type Panel = "battery" | "wifi" | "cc" | "date" | null;
 
-/**
- * Display brightness lives outside React's desktop state: dragging the slider re-renders only the
- * slider and the dimmer, not the whole desktop. The dimmer is a black layer whose opacity is
- * 1 - brightness, which is pixel-identical to filter: brightness() but costs one blended layer
- * instead of re-filtering the whole screen (and every animation on it) each frame.
- */
+// Isolate brightness updates from desktop renders; dim with opacity instead of a full-screen filter.
 let brightness = 1;
 const brightSubs = new Set<() => void>();
 const brightStore = {
@@ -30,7 +25,6 @@ export function Dimmer() {
   return b < 1 ? <div className="fx-dim" aria-hidden style={{ opacity: 1 - b }} /> : null;
 }
 
-/** Menu bar clock: ticks on its own, so the desktop does not re-render every 15 seconds. */
 export function MenuClock({ onClick, open }: { onClick: () => void; open: boolean }) {
   const [now, setNow] = useState("");
   useEffect(() => {
@@ -38,7 +32,6 @@ export function MenuClock({ onClick, open }: { onClick: () => void; open: boolea
     let t: ReturnType<typeof setTimeout>;
     const tick = () => {
       setNow(f.format(new Date()).replace(/,/g, "").replace(/\s?(AM|PM)/, "\u202f$1"));
-      // wake exactly on the next minute instead of polling
       t = setTimeout(tick, 60000 - (Date.now() % 60000) + 50);
     };
     tick();
@@ -103,7 +96,6 @@ export const ControlGlyph = () => (
   </svg>
 );
 
-/** Popover that scales out of the icon that opened it (macOS menu-extra feel). */
 export function Popover({ right, width, children, cc }: { right: number; width: number; children: ReactNode; cc?: boolean }) {
   return (
     <div className={cc ? "fx-extra fx-cc-pop" : "fx-menu fx-extra"} style={{ right, width, top: 27 }} onPointerDown={e => e.stopPropagation()}>

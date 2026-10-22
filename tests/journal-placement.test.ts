@@ -36,7 +36,6 @@ it.each([{ positions: [0, 3, 4] }, { positions: [] }])(
     const query = new PgDialect().sqlToQuery(
       mocks.values.mock.calls[0][0].position
     );
-    // Run the common SQL aggregate against real rows without needing a remote DB.
     const db = new DatabaseSync(":memory:");
     try {
       db.exec(

@@ -12,7 +12,6 @@ const DOCK_GAP = 6;
 const EASE = "cubic-bezier(.2,.8,.2,1)";
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/** Dock slot for a minimized entry window (same look and grow/shrink motion as the app thumbnails). */
 export function EntrySlot() {
   const m = useEntryDock();
   const item = useRef<HTMLDivElement>(null);
@@ -30,7 +29,6 @@ export function EntrySlot() {
     if (!thumb) box.current?.replaceChildren();
   }, [thumb]);
 
-  // grow in: measure the final box first (the genie aims there), then open the gap from zero
   useLayoutEffect(() => {
     const el = item.current;
     if (!shown || !el || !box.current) return;
@@ -39,7 +37,6 @@ export function EntrySlot() {
     retargetGenies();
   }, [shown]);
 
-  // shrink away once the window is back out, then drop the slot
   useEffect(() => {
     const el = item.current;
     if (!leaving || !el) return;

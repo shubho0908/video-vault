@@ -12,7 +12,6 @@ import "./welcome.css";
 
 
 
-// "hello" is written first, then these cycle (about 3.6s together with the writing).
 const greetings = ["नमस्ते", "Bonjour", "Hola", "こんにちは", "Ciao", "Hello"];
 const SEEN_KEY = "shubhojeets-videos:intro-seen";
 const introSeen = () => { try { return localStorage.getItem(SEEN_KEY) === "1"; } catch { return false; } };
@@ -32,7 +31,7 @@ function useClock() {
 }
 
 function Intro({ onDone }: { onDone: () => void }) {
-  const [i, setI] = useState(-1); // -1 = writing "hello"
+  const [i, setI] = useState(-1);
   const [out, setOut] = useState(false);
   useEffect(() => {
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return onDone();
@@ -50,7 +49,6 @@ function Intro({ onDone }: { onDone: () => void }) {
           <defs>
             <linearGradient id="wl-g" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="638" y2="0"><stop offset="0" className="wl-s0" /><stop offset=".55" className="wl-s1" /><stop offset="1" className="wl-s2" /></linearGradient>
           </defs>
-          {/* soft edges come from stacked translucent strokes, not feGaussianBlur: no filter pass per animation frame */}
           <g transform="translate(0 4)">
             {helloPaths.map((d, n) => <path key={`s${n}`} d={d} pathLength={1} className={`wl-p wl-sh wl-p${n}`} />)}
             {helloPaths.map((d, n) => <path key={`t${n}`} d={d} pathLength={1} className={`wl-p wl-sh2 wl-p${n}`} />)}
@@ -124,7 +122,6 @@ function Auth({ desktop, restricted }: { desktop: boolean; restricted: boolean }
   );
 }
 
-/** Opening "hello" sequence, then the macOS (desktop) or iOS (touch) sign-in screen. */
 export function Welcome({ intro = true, restricted = false }: { intro?: boolean; restricted?: boolean }) {
   const desktop = useIsDesktop();
   const [showIntro, setShowIntro] = useState(() => intro && !introSeen());

@@ -11,11 +11,6 @@ import { getYouTubeThumbnail } from "@/lib/youtube";
 import { OPEN_DESKTOP, OPEN_SHEET, entryPreview, skeletonHandover } from "./entry-preview";
 
 
-/**
- * Instant entry window while the server renders the real one (loading.tsx of the intercepted entry
- * routes). Same frame, same position, same open animation; the title and poster come from the
- * Finder's own data when it is the entry that was just opened.
- */
 export function EntrySkeleton({ mode }: { mode?: "new" | "view" }) {
   const desktop = useIsDesktop();
   const frame = useRef<HTMLDivElement>(null);

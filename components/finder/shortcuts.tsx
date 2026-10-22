@@ -1,6 +1,5 @@
 "use client";
 
-/** Only shortcuts that are actually wired up. Keep in sync with the key handlers in mac-desktop.tsx and entry-scene.tsx. */
 export const SHORTCUTS: { title: string; items: [string, string][] }[] = [
   {
     title: "Finder",

@@ -51,20 +51,13 @@ type History = {
   current: string;
   undo: HistoryItem[];
   redo: HistoryItem[];
-  /** performance.now() of the push that opened the current typing step; 0 when no typing step is open. */
   typingSince: number;
-  /** Whether the open typing step is inserting (true) or deleting (false) text. */
   typingInserts: boolean;
 };
 
-/** Undo steps kept at most. */
 const HISTORY_LIMIT = 100;
-/**
- * Upper bound on characters retained across all undo/redo snapshots (~2 MB as UTF-16). The newest step
- * always survives, so a single huge note can still be undone once.
- */
+// Cap history memory, but retain the newest step so the latest edit remains undoable.
 const HISTORY_CHAR_BUDGET = 1_000_000;
-/** Typing within this window of the last undo snapshot extends that step instead of adding a new one. */
 const TYPING_STEP_MS = 700;
 const EMPTY_IMAGES: NoteImageReference[] = [];
 const NO_SLASH_COMMANDS: SlashCommand[] = [];
@@ -113,14 +106,11 @@ type SlashCommand = {
   description: string;
   terms: string;
   icon: typeof Heading1;
-  /** Text that replaces the "/query" on the current line, and where the caret lands inside it. */
   replacement: string;
   caret: number;
-  /** Also opens the image picker (or explains why it can't). */
   upload?: boolean;
 };
 
-// Plain data (no closures), so filtering for the slash menu is pure and memoizable.
 const SLASH_COMMANDS: SlashCommand[] = [
   {
     label: "Text",
@@ -248,10 +238,6 @@ function currentLine(value: string, caret: number) {
   return { start: lineStart, value: value.slice(lineStart, caret) };
 }
 
-/**
- * The toolbar only depends on these props, so it is memoized: typing re-renders the editor on every
- * keystroke, but no longer re-renders ~17 buttons and their icons. `onAction` is a stable dispatcher.
- */
 const EditorToolbar = memo(function EditorToolbar({
   entryId,
   uploading,
@@ -437,11 +423,7 @@ export function MarkdownEditor({
     }
   }, [value]);
 
-  /**
-   * Restore focus and the caret after a programmatic edit (toolbar, shortcuts, slash commands, links,
-   * image insertion, undo/redo). Plain typing never comes through here: the browser already owns the
-   * caret, and forcing focus/setSelectionRange would cost a layout per keystroke and break IME input.
-   */
+  // Only restore the caret after programmatic edits; plain typing belongs to the browser and IME.
   function setTextareaSelection(selection: Selection) {
     selectionRef.current = selection;
     requestAnimationFrame(() => {
@@ -452,11 +434,6 @@ export function MarkdownEditor({
     });
   }
 
-  /**
-   * Apply an edit and record undo history. Programmatic edits are always their own undo step. Typing
-   * (`typing: true`) is coalesced: it extends the open step unless TYPING_STEP_MS passed since that step
-   * began, a line break was typed, or the edit switched between inserting and deleting.
-   */
   function commit(
     nextValue: string,
     nextSelection: Selection = selectionRef.current,
@@ -469,7 +446,6 @@ export function MarkdownEditor({
     const extendsTypingStep =
       typing &&
       history.typingSince > 0 &&
-      // an IME composition (romaji/pinyin -> converted text) is one undo step however long it takes
       (composingRef.current ||
         (now - history.typingSince < TYPING_STEP_MS &&
           inserts === history.typingInserts &&
@@ -502,7 +478,6 @@ export function MarkdownEditor({
       start: event.target.selectionStart,
       end: event.target.selectionEnd,
     };
-    // a paste or drop is its own undo step, never merged with the typing around it
     const inputType = (event.nativeEvent as InputEvent).inputType ?? "";
     const pasted = inputType === "insertFromPaste" || inputType === "insertFromDrop";
     if (pasted) historyRef.current.typingSince = 0;
@@ -711,7 +686,6 @@ export function MarkdownEditor({
     }
   }
 
-  // Recomputed only when the "/query" or entryId changes, never on ordinary keystrokes.
   const visibleSlashCommands = useMemo(
     () =>
       slashQuery === null
@@ -868,7 +842,6 @@ export function MarkdownEditor({
     }
   }
 
-  // Stable identity for the memoized toolbar; always dispatches to this render's handlers.
   const toolbarActionRef = useRef(runToolbarAction);
   useLayoutEffect(() => {
     toolbarActionRef.current = runToolbarAction;
@@ -952,12 +925,10 @@ export function MarkdownEditor({
             onSelect={event => updateSelection(event.currentTarget)}
             onCompositionStart={() => {
               composingRef.current = true;
-              // a composition opens its own undo step: never merge it into typing from before a pause
               historyRef.current.typingSince = 0;
             }}
             onCompositionEnd={() => {
-              // Safari sends the final composition input after compositionend: keep the step open for it,
-              // then close it so later typing does not join the composed text
+              // Safari emits the final composition input after compositionend; close the undo step next tick.
               setTimeout(() => {
                 composingRef.current = false;
                 historyRef.current.typingSince = 0;

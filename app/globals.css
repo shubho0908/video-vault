@@ -24,12 +24,6 @@
   --font-serif: var(--font-serif);
 }
 
-/*
- * Shubhojeet's Videos — dark-tech premium system.
- * One cool blue-charcoal neutral family (hue ~265), one electric indigo-blue
- * accent (hue ~262). Dark is the flagship theme; light shares the same hue
- * family. Radius scale: containers xl · controls lg · chips md.
- */
 
 :root {
   --background: oklch(0.983 0.002 260);
@@ -110,7 +104,6 @@ select {
   background: oklch(0.62 0.15 262 / 0.28);
 }
 
-/* Ambient accent glow pinned to the top of the viewport. */
 .ambient-glow {
   position: absolute;
   inset: 0;
@@ -147,7 +140,6 @@ select {
   font-variant-numeric: tabular-nums;
 }
 
-/* Accent-tinted elevation for primary actions and featured surfaces. */
 .glow-primary {
   box-shadow:
     inset 0 1px 0 oklch(1 0 0 / 0.09),
@@ -229,8 +221,7 @@ html {
   font-family: var(--font-mono);
 }
 
-/* Syntax highlighting (rehype-highlight / highlight.js classes). The fenced-code
-   background is dark navy in both themes, so a single dark-editor palette covers both. */
+/* Code blocks use a dark background in both themes. */
 .markdown-body .hljs-comment,
 .markdown-body .hljs-quote {
   color: oklch(0.72 0.02 260);

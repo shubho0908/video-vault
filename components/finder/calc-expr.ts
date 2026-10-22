@@ -1,4 +1,3 @@
-/** Safe arithmetic for Spotlight: numbers, + - * / x × ÷ % (modulo), ^ and parentheses. No eval. */
 export function evalExpr(src: string): number | null {
   const s = src.replace(/[×x]/gi, "*").replace(/÷/g, "/").replace(/,/g, "").replace(/\s+/g, "");
   if (!s || !/^[0-9+\-*/%^().]+$/.test(s) || !/[+\-*/%^]/.test(s.replace(/^[+-]/, "")) ) return null;

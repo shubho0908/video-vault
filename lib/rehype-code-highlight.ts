@@ -3,14 +3,7 @@ import { toText } from "hast-util-to-text";
 import { common, createLowlight } from "lowlight";
 import { visit } from "unist-util-visit";
 
-/**
- * Syntax highlighting for fenced code in notes. Same output and the same language set as
- * `rehype-highlight` with its defaults (highlight.js `common`: `hljs` + `hljs-*` classes, `language-*` /
- * `lang-*` fences, `no-highlight` opt-out, no auto-detect). The difference is cost: one lowlight instance
- * for the module. react-markdown builds a fresh unified processor on every render, and rehype-highlight
- * created (and re-registered every grammar on) a new highlighter each time, which also threw away
- * highlight.js's compiled-grammar cache.
- */
+// Reuse registered grammars across Markdown renders instead of rebuilding the highlighter each time.
 const lowlight = createLowlight(common);
 
 function fenceLanguage(node: Element): string | false | undefined {
@@ -46,8 +39,6 @@ export function rehypeCodeHighlight() {
       if (!node.properties.className.includes("hljs")) {
         node.properties.className.unshift("hljs");
       }
-      // Unregistered language: keep the `hljs` class but leave the text unhighlighted, like
-      // rehype-highlight (which only records a file message in that case).
       if (!lowlight.registered(lang)) return;
 
       const result = lowlight.highlight(

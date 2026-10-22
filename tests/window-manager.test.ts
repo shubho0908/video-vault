@@ -20,7 +20,6 @@ describe("raise", () => {
     for (const id of clicks) {
       w = raise(w, id);
       for (const a of ORDER) expect(w[a].z).toBeLessThanOrEqual(30);
-      // the window just raised is strictly on top
       for (const a of ORDER) if (a !== id) expect(w[a].z).toBeLessThan(w[id].z);
     }
   });
@@ -50,7 +49,6 @@ describe("snapshotWindow", () => {
     rects.set(el, { left: 0, top: 0, width: 400, height: 300 });
     rects.set(scroll, { left: 0, top: 0, width: 400, height: 300 });
     rects.set(grid, { left: 0, top: -500, width: 400, height: 2000 });
-    // scrolled down 500px: rows 0-4 are above the viewport, 5-7 visible, the rest below
     for (let i = 0; i < 20; i++) {
       const row = document.createElement("div");
       row.textContent = `row ${i}`;
@@ -64,13 +62,11 @@ describe("snapshotWindow", () => {
 
     const tpl = snapshotWindow(el)!;
     const rows = Array.from(tpl.firstElementChild!.firstElementChild!.children) as HTMLElement[];
-    // nothing removed, so later rows do not shift up into the space of the clipped ones
     expect(rows).toHaveLength(20);
     expect(rows[0].textContent).toBe("");
     expect(rows[0].style.height).toBe("100px");
     expect(rows[6].textContent).toBe("row 6");
     expect(rows[19].textContent).toBe("");
-    // the scroll offset is baked into the content, and the copy inherits visibility from its overlay
     expect((tpl.firstElementChild!.firstElementChild as HTMLElement).style.translate).toBe("0px -500px");
     expect(tpl.style.visibility).toBe("inherit");
   });
@@ -100,7 +96,6 @@ describe("cloneBand", () => {
     expect(rows[3].textContent).toBe("");
     expect(rows[3].style.height).toBe("100px");
     expect(rows[9].textContent).toBe("");
-    // the template itself is untouched (it is also the Dock thumbnail)
     expect(tpl.textContent).toContain("row 9");
   });
 });
@@ -120,14 +115,13 @@ describe("warm genie", () => {
 
     warmGenie(el, "in");
     const warm = takeMinimize(el);
-    expect(takeMinimize(el)).not.toBe(warm); // taken once: a second take builds anew
+    expect(takeMinimize(el)).not.toBe(warm);
 
     warmGenie(el, "in");
     ta.value = "typed after hover";
     ta.dispatchEvent(new Event("input", { bubbles: true }));
     const after = takeMinimize(el);
     const { thumb } = await after;
-    // rebuilt from the current window: the flattened textarea carries the new text
     expect(thumb?.textContent).toContain("typed after hover");
     coolGenie(el, "in");
     await new Promise(r => setTimeout(r, 50));

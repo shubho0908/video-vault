@@ -2,7 +2,6 @@
 .wl-blank { background: #1b1170; }
 .wl-wall { position: absolute; inset: -4%; background: var(--fx-wall); }
 .wl-auth { position: absolute; inset: 0; animation: wl-auth-in .6s cubic-bezier(.2,.8,.2,1) both; }
-/* opacity + scale only: a blur filter here re-blurred the full-screen wallpaper and the glass button every frame */
 @keyframes wl-auth-in { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: none; } }
 .wl-intro { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; background: var(--wl-bg); transition: opacity .5s ease, transform .5s ease; }
 .wl-intro[data-out="true"] { opacity: 0; transform: scale(1.06); pointer-events: none; }
@@ -17,7 +16,6 @@
 .wl-greet { font-weight: 600; letter-spacing: -.02em; font-size: clamp(56px, 11vw, 120px); font-family: -apple-system, BlinkMacSystemFont, system-ui, "Noto Sans", "Noto Sans Devanagari", "Noto Sans JP", "Noto Sans KR", "Noto Sans SC", sans-serif; animation: wl-greet .3s ease both; }
 @keyframes wl-greet { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
 
-/* macOS login window feel */
 .wl-mbar { position: absolute; top: 0; left: 0; right: 0; height: 28px; display: flex; justify-content: space-between; padding: 0 14px; align-items: center; font-size: 13px; font-weight: 500; text-shadow: 0 1px 2px rgba(0,0,0,.3); }
 .wl-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding-bottom: 40px; }
 .wl-avatar { width: 104px; height: 104px; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 1px rgba(255,255,255,.4), 0 10px 30px rgba(0,0,0,.3); background: rgba(255,255,255,.2); }
@@ -29,7 +27,6 @@
 .wl-legal { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; font-size: 12px; opacity: .8; } .wl-legal a { text-decoration: underline; text-underline-offset: 2px; }
 .wl-alert { margin: 12px 0 0; padding: 8px 12px; border-radius: 12px; font-size: 12.5px; background: rgba(255,59,48,.35); box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); max-width: 300px; text-align: center; }
 
-/* iOS lock screen feel */
 .wl-lock { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 56px); left: 0; right: 0; display: flex; flex-direction: column; align-items: center; text-shadow: 0 1px 6px rgba(0,0,0,.18); }
 .wl-date { margin: 8px 0 0; font-size: 20px; font-weight: 600; opacity: .92; }
 .wl-time { margin: -6px 0 0; font-size: 92px; font-weight: 700; letter-spacing: -.02em; line-height: 1.05; font-variant-numeric: tabular-nums; background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,255,255,.7)); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; }
@@ -41,7 +38,6 @@
 .wl-avatar-sm { width: 64px; height: 64px; margin-bottom: 4px; }
 .wl-avatar img { object-position: center; }
 
-/* Intro sits on a wallpaper-like backdrop (real Setup "hello"/"welcome" screens do, they are not black) */
 .wl-root[data-os="mac"] { --wl-c0: #8fb0ff; --wl-c1: #7fd3e6; --wl-c2: #9ff0c4;
   --wl-bg: radial-gradient(60% 55% at 50% -5%, #b9e08a 0%, rgba(120,200,160,.0) 70%), conic-gradient(from 200deg at 50% -10%, #1f4fd0, #2fa8a8 12%, #1c1a9a 24%, #2d8fd0 38%, #8fd6a0 48%, #1f3fc0 60%, #2a1590 78%, #1f4fd0); }
 .wl-root[data-os="ios"] { --wl-c0: #ffe3d8; --wl-c1: #fff3ec; --wl-c2: #ffd5d0;
@@ -49,9 +45,7 @@
 .wl-s0 { stop-color: var(--wl-c0); } .wl-s1 { stop-color: var(--wl-c1); } .wl-s2 { stop-color: var(--wl-c2); }
 
 
-/* jelly / glass tube lettering: shadow, dark rim, gradient body, soft inner light, thin specular (layered strokes) */
 .wl-write { filter: none; width: min(80vw, 600px); }
-/* soft shadow and inner light without SVG blur filters (those re-ran on every frame of the drawing animation) */
 .wl-sh { stroke: rgba(0,0,0,.16); stroke-width: 34; }
 .wl-sh2 { stroke: rgba(0,0,0,.24); stroke-width: 28; }
 .wl-rim { stroke: var(--wl-rim); stroke-width: 29; }

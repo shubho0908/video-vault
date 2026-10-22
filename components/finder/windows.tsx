@@ -21,29 +21,23 @@ export type Win = { open: boolean; min: boolean; zoomed: boolean; z: number; x: 
 export type Wins = Record<AppId, Win>;
 type Api = {
   close(): Promise<void>;
-  /** Snapshot the window and build the genie copies (starts before the Dock slot exists). */
   prepareMinimize(): Promise<{ genie: Genie | null; thumb: HTMLElement | null }>;
-  /** Build the genie copies for the way back while the window is still hidden. */
   prepareRestore(): Promise<Genie | null>;
-  /** Remember the current box so the zoom can animate from it. */
   prepareZoom(): void;
   setHidden(hidden: boolean): void;
-  /** Pointer is on the minimize button / Dock thumbnail: build the genie ahead of the click (or drop it). */
   warm(dir: "in" | "out", on: boolean): void;
 };
 
 const base: Win = { open: false, min: false, zoomed: false, z: 1, x: 0, y: 0 };
-/** Window z-indexes stay below the genie overlay (35), the Dock (40) and the menu bar (50). */
+// Reserve higher layers for the genie (35), Dock (40), and menu bar (50).
 const Z_FLOOR = 11;
 const Z_CEIL = 30;
 
-/** Bring one window to the front; returns the same object when it already is (React then skips the render). */
 export function raise(w: Wins, id: AppId): Wins {
   const top = Math.max(...ORDER.map(a => w[a].z));
   if (w[id].z === top && ORDER.every(a => a === id || w[a].z < top)) return w;
   const next: Wins = { ...w, [id]: { ...w[id], z: top + 1 } };
   if (top + 1 <= Z_CEIL) return next;
-  // renumber, keeping the stacking order, so z never climbs over the Dock or the menu bar
   [...ORDER].sort((a, b) => next[a].z - next[b].z).forEach((a, i) => (next[a] = { ...next[a], z: Z_FLOOR + i }));
   return next;
 }
@@ -58,12 +52,9 @@ export function useWindowManager() {
   const [front, setFront] = useState<AppId>("finder");
   const [bounce, setBounce] = useState<AppId | null>(null);
   const [thumbs, setThumbs] = useState<Partial<Record<AppId, HTMLElement>>>({});
-  /**
-   * Dock slots for minimized windows, separate from `min` so a slot can grow in before the genie lands
-   * and shrink away after the window is back out (like macOS) instead of popping in and out.
-   */
+  // Slot lifetime extends past restore so the empty slot can shrink before removal.
   const [docked, setDocked] = useState<Partial<Record<AppId, "in" | "out">>>({});
-  // key order is Dock order: a newly minimized window is appended at the right end, like macOS
+  // Object key order preserves minimize order in the Dock.
   const dock = useCallback((id: AppId, v: "in" | "out" | undefined) =>
     setDocked(d => {
       if (d[id] === v) return d;
@@ -73,14 +64,11 @@ export function useWindowManager() {
       return rest;
     }), []);
   const undock = useCallback((id: AppId) => dock(id, undefined), [dock]);
-  /** Final slot box, measured when the slot mounts (before it animates its width). */
   const slotRects = useRef<Partial<Record<AppId, DOMRect>>>({});
   const apis = useRef<Partial<Record<AppId, Api>>>({});
   const slots = useRef<Partial<Record<AppId, HTMLElement | null>>>({});
-  // Latest window state for event handlers, so every callback below is created once and stays stable.
   const live = useRef(wins);
   const busy = useRef(new Set<AppId>());
-  /** Dock clicks that arrived while that window was still minimizing: restored as soon as it lands. */
   const queued = useRef(new Set<AppId>());
   const bounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(bounceTimer.current), []);
@@ -97,7 +85,7 @@ export function useWindowManager() {
   const restore = useCallback(
     async (id: AppId) => {
       if (busy.current.has(id)) {
-        // only a minimize in flight is worth waiting for; a click during a restore is a duplicate
+        // Queue during minimize; ignore duplicate clicks during restore.
         if (live.current[id].min) queued.current.add(id);
         return;
       }
@@ -105,17 +93,14 @@ export function useWindowManager() {
       const api = apis.current[id];
       try {
         const slot = slots.current[id]?.getBoundingClientRect();
-        // build the copies while the window is still minimized, then swap state and animate in the same frame
         const g = slot && api ? await api.prepareRestore().catch(() => null) : null;
         update(w => raise({ ...w, [id]: { ...w[id], min: false } }, id));
         setFront(id);
         setThumbs(t => ({ ...t, [id]: undefined }));
         if (g && slot) await g.play(slot, "out", 560);
       } finally {
-        // never leave the window invisible or locked, whatever happened above
         api?.setHidden(false);
         busy.current.delete(id);
-        // the empty slot closes up only once the window is fully out
         if (!live.current[id].min) dock(id, "out");
       }
     },
@@ -155,14 +140,11 @@ export function useWindowManager() {
       busy.current.add(id);
       const api = apis.current[id];
       try {
-        // snapshot now (before React touches the window) and build while the Dock makes room
         const prepared = (api?.prepareMinimize() ?? Promise.resolve({ genie: null, thumb: null })).catch(() => ({ genie: null, thumb: null }));
         patch(id, { min: true });
         dock(id, "in");
         const { genie, thumb } = await prepared;
-        // the click's state update commits right after the event, mounting the slot; wait a frame only if not yet
         for (let i = 0; i < 3 && !slotRects.current[id]; i++) await nextFrame();
-        // the slot is still growing: aim at the box it grows into, not its current one
         const slot = slotRects.current[id] ?? slots.current[id]?.getBoundingClientRect();
         const land = () => thumb && setThumbs(t => (t[id] === thumb ? t : { ...t, [id]: thumb }));
         if (genie && slot) await genie.play(slot, "in", 620, land, () => slots.current[id] ?? null);
@@ -201,7 +183,6 @@ export function useWindowManager() {
     [focus, patch]
   );
 
-  /** Speculative genie build while the pointer rests on a minimize button or Dock thumbnail (never during an animation). */
   const warm = useCallback((id: AppId, dir: "in" | "out", on: boolean) => {
     if (on && busy.current.has(id)) return;
     apis.current[id]?.warm(dir, on);
@@ -257,7 +238,6 @@ export function AppWindow({ id, wm, className, children }: { id: AppId; wm: WM; 
     if (!w.open) mounted.current = false;
   }, [w.open]);
 
-  // zoom: the window is already at its new box; animate from the old one on the compositor
   useLayoutEffect(() => {
     const from = zoomFrom.current;
     zoomFrom.current = null;
@@ -309,10 +289,6 @@ const BASE = 54;
 const MAX = 1.55;
 const REACH = 105;
 
-/**
- * Dock with macOS magnification. The per-frame sizes are written straight to the item elements
- * (no React render per frame); React only renders when windows open, close or minimize.
- */
 function DockView({ wm }: { wm: WM }) {
   const tgt = useRef<{ x: number; on: boolean }>({ x: 0, on: false });
   const cur = useRef({ x: 0, k: 0, t: 0 });
@@ -401,11 +377,10 @@ function DockView({ wm }: { wm: WM }) {
     </div>
   );
 }
-/** The Dock only depends on window state, bounce and thumbnails; the rest of the desktop re-rendering must not touch it. */
 export const Dock = memo(DockView, (a, b) => a.wm.wins === b.wm.wins && a.wm.bounce === b.wm.bounce && a.wm.thumbs === b.wm.thumbs && a.wm.docked === b.wm.docked);
 
 const SLOT_EASE = "cubic-bezier(.2,.8,.2,1)";
-/** The Dock's flex gap: a slot animating to zero width also takes its gap with it, so nothing jumps. */
+// A slot shrinking to zero must remove its flex gap too.
 const DOCK_GAP = 6;
 
 function Slot({ id, wm, leaving }: { id: AppId; wm: WM; leaving: boolean }) {
@@ -422,20 +397,16 @@ function Slot({ id, wm, leaving }: { id: AppId; wm: WM; leaving: boolean }) {
     el.replaceChildren(thumb);
   }, [thumb, tw]);
 
-  // grow in: measure the final box first (the genie aims there), then open the gap from zero
   useLayoutEffect(() => {
     const el = item.current;
     if (!el || !box.current) return;
-    // the final box, even if another slot is still growing or shrinking next to it
     slotRects.current[id] = settledRect(box.current);
     if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
       el.animate([{ width: "0px", marginLeft: `-${DOCK_GAP}px` }, { width: `${tw}px`, marginLeft: "0px" }], { duration: 280, easing: SLOT_EASE });
-    // the centred Dock just grew: genies still flying to other slots follow them
     retargetGenies();
     return () => void delete slotRects.current[id];
   }, [id, tw, slotRects]);
 
-  // shrink away once the window is back out, then leave the Dock
   useEffect(() => {
     const el = item.current;
     if (!leaving || !el) return;

@@ -33,7 +33,6 @@ const setNativeValue = Object.getOwnPropertyDescriptor(
   "value"
 )!.set!;
 
-/** Simulate the browser applying one keystroke: DOM value + caret change, then an input event. */
 function type(text: string, at = now) {
   now = at;
   const element = textarea();
@@ -93,8 +92,8 @@ describe("markdown editor history", () => {
   it("starts a new step after the typing window and on a new line", () => {
     type("a", 1000);
     type("b", 1100);
-    type("c", 2000); // ≥ 700 ms after the step began
-    type("\n", 2050); // line break always starts a step
+    type("c", 2000);
+    type("\n", 2050);
     type("d", 2100);
 
     click("Undo (⌘Z)");
@@ -107,7 +106,7 @@ describe("markdown editor history", () => {
 
   it("keeps toolbar edits as their own undo steps", () => {
     type("x", 1000);
-    click("Bold (⌘B)"); // caret at the end: inserts the placeholder
+    click("Bold (⌘B)");
     expect(textarea().value).toBe("x**bold text**");
 
     click("Undo (⌘Z)");
@@ -147,7 +146,6 @@ describe("markdown editor history", () => {
   it("keeps an IME composition in its own undo step, apart from typing before a pause", () => {
     vi.useFakeTimers({ toFake: ["setTimeout"] });
     type("abc");
-    // pause longer than a typing step, then compose for a long time
     act(() => {
       textarea().dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
     });
@@ -171,8 +169,6 @@ describe("markdown editor history", () => {
     for (let step = 1; step <= 20; step += 1) type(chunk, step * 1000);
     expect(textarea().value).toHaveLength(200_000);
 
-    // 10k + 20k + … + 200k = 2.1M characters would exceed the ~1M budget, so the oldest snapshots
-    // (including the empty note) are gone, but recent steps are still undoable one at a time.
     click("Undo (⌘Z)");
     expect(textarea().value).toHaveLength(190_000);
     for (let step = 0; step < 25; step += 1) click("Undo (⌘Z)");

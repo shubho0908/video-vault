@@ -23,7 +23,6 @@ type NoteMarkdownProps = {
   className?: string;
 };
 
-// Module-level so ReactMarkdown sees the same plugin/component identities on every render.
 const REMARK_PLUGINS: Options["remarkPlugins"] = [remarkGfm];
 const REHYPE_PLUGINS: Options["rehypePlugins"] = [rehypeCodeHighlight];
 const EMPTY_IMAGES: NoteImageReference[] = [];
@@ -35,7 +34,6 @@ function MarkdownListItem({
 }: ComponentPropsWithoutRef<"li"> & { node?: unknown }) {
   const childNodes = Children.toArray(children);
   const firstChild = childNodes[0];
-  // Literal “[x] item” text (pre-GFM notes) or a remark-gfm task-list checkbox input.
   const task =
     typeof firstChild === "string"
       ? /^\[([ xX])\]\s+(.*)$/.exec(firstChild)
@@ -75,11 +73,6 @@ function MarkdownListItem({
 
 const MARKDOWN_COMPONENTS: Components = { li: MarkdownListItem };
 
-/**
- * Memoized: parents (the entry window, the editor) re-render on every keystroke and state change, but the
- * Markdown → React pipeline (parse, GFM, syntax highlighting) only needs to rerun when the text or the
- * image set actually changes.
- */
 export const NoteMarkdown = memo(function NoteMarkdown({
   markdown,
   images = EMPTY_IMAGES,

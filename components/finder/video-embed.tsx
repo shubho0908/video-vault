@@ -8,13 +8,6 @@ import { getYouTubeEmbedUrl, getYouTubeThumbnail } from "@/lib/youtube";
 
 const EMBED_ORIGIN = "https://www.youtube-nocookie.com";
 
-/**
- * Click-to-load YouTube embed. The real player is ~1 MB of third-party JS plus several
- * connections, so mounting it eagerly shows a blank white frame for seconds and competes with
- * hydration. Here the poster paints immediately from the thumbnail CDN, the YouTube origin is
- * warmed in the background, and the iframe is only created (with autoplay) on user intent.
- * Remount with `key={videoId}` to reset when the video changes.
- */
 export function VideoEmbed({ videoId, title }: { videoId: string; title: string }) {
   const [active, setActive] = useState(false);
 

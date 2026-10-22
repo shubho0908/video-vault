@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// Static imports required: vi.mock hoisting must intercept next/navigation before module load.
+// Static imports let vi.mock intercept next/navigation before module evaluation.
 (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 import { createElement } from "react";
 import { act } from "react";
@@ -61,7 +61,6 @@ describe("navigation performance boundaries", () => {
   });
 
   it("renders loading boundaries synchronously inside the Finder shell", () => {
-    // entry routes now render inside the Finder/iOS scene and have no page skeleton
     expect(renderToStaticMarkup(createElement(EntryLoading))).toBe("");
     const markup = renderToStaticMarkup(createElement(DashboardLoading));
     expect(markup).toContain('class="fx fx-desktop"');

@@ -25,8 +25,6 @@ const EASE_IN = "cubic-bezier(.4,0,1,1)";
 const DRAFT = "vv-entry-draft";
 const SHEET_EASE = "cubic-bezier(.32,.72,0,1)";
 
-// The editor and the image uploader are only needed in edit/new mode: keep them out of the view bundle
-// and fetch them in the background once the window is idle, so Edit still opens instantly.
 const loadEditor = () => import("@/components/journal/markdown-editor");
 const loadImages = () => import("@/components/journal/image-panel");
 const MarkdownEditor = lazy(() => loadEditor().then(m => ({ default: m.MarkdownEditor })));
@@ -71,14 +69,11 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
   const vid = getYouTubeVideoId(values.youtubeUrl);
   const update = <K extends keyof Values>(k: K, v: Values[K]) => setValues(c => ({ ...c, [k]: v }));
 
-  // open animation: macOS window pop, iOS sheet rise. When the loading skeleton was on screen, carry
-  // on from where its animation was instead of popping a second time.
   useLayoutEffect(() => {
     const el = frame.current;
     if (!el || desktop === null) return;
     const ran = skeletonHandover.take(desktop);
     const [kf, opts] = desktop ? OPEN_DESKTOP : OPEN_SHEET;
-    // the iOS backdrop continues its fade too (or stays fully shown when the skeleton already finished it)
     if (ran !== null && backRef.current) backRef.current.style.animationDelay = `-${ran}ms`;
     if (ran !== null && ran >= Number(opts.duration)) return;
     const a = el.animate(kf, opts);
@@ -91,7 +86,6 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
     if (from) flipZoom(frame.current, from);
   }, [zoomed]);
 
-  // warm the editor chunks while the user reads, so switching to Edit has nothing to download
   useEffect(() => whenIdle(() => void Promise.all([loadEditor(), loadImages()]).catch(() => undefined)), []);
 
   const leave = useCallback(async () => {
@@ -131,7 +125,6 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
     const vals = values;
     const ytId = getYouTubeVideoId(vals.youtubeUrl);
     if (!entry) {
-      // create: show it in the Finder now, close the window, save in the background
       const tmp = `tmp-e-${Date.now().toString(36)}`;
       bus.add({ id: tmp, title: vals.title.trim(), topic: vals.topic.trim(), youtubeId: ytId ?? "" });
       void leave();
@@ -150,7 +143,6 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
         });
       return;
     }
-    // Keep the editor open until the server confirms the save.
     bus.patch(entry.id, { title: vals.title.trim(), topic: vals.topic.trim(), ...(ytId ? { youtubeId: ytId } : {}) });
     setSaving(true);
     saveEntryAction(entry.id, vals)
@@ -189,7 +181,6 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
     const key = (e: KeyboardEvent) => {
       if (ew.min) return;
       const mod = e.metaKey || e.ctrlKey;
-      // keep the Finder behind from reacting to window shortcuts while this window has focus
       if (mod && ["w", "m", "n", "1", "2", "[", "]"].includes(e.key.toLowerCase())) e.stopImmediatePropagation();
       if (mod && e.key.toLowerCase() === "w") {
         e.preventDefault();
@@ -211,11 +202,9 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
   }, []);
 
 
-  // mac: drag by the title bar
   const lastDown = useRef(0);
   function dragStart(e: RPointerEvent) {
     if (!(e.target as HTMLElement).closest("button,input,a")) {
-      // pointer capture swallows dblclick, so detect the double press by hand
       const now = performance.now();
       if (now - lastDown.current < 500) {
         lastDown.current = 0;
@@ -225,10 +214,8 @@ export function EntryScene({ mode: initialMode, entry, images, standalone }: { m
       lastDown.current = now;
     }
     if (zoomed || (e.target as HTMLElement).closest("button,input,a")) return;
-    // move the window by writing the transform directly: no React re-render per pointermove
     startWindowDrag(e, frame.current, pos.current, p => void (pos.current = p));
   }
-  // iOS: pull the sheet down to dismiss
   function sheetStart(e: RPointerEvent) {
     if (saving || (e.target as HTMLElement).closest("button,input,a")) return;
     const sy = e.clientY;

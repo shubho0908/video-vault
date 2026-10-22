@@ -4,6 +4,7 @@ import { Geist, Geist_Mono, Newsreader } from "next/font/google";
 import "@/app/globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { wallpaperBootScript } from "@/lib/wallpaper-boot";
+import { siteMetadata } from "@/lib/site-metadata";
 
 // System fonts cover first paint; load these secondary UI fonts on demand.
 const sans = Geist({
@@ -26,15 +27,7 @@ const serif = Newsreader({
   preload: false,
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "Shubhojeet's Videos",
-    template: "%s · Shubhojeet's Videos",
-  },
-  description:
-    "Shubhojeet's private collection of unlisted YouTube explanations, notes, and references. Built for learning that lasts.",
-  robots: { index: false, follow: false },
-};
+export const metadata: Metadata = siteMetadata;
 
 export default function RootLayout({
   children,
@@ -60,4 +53,3 @@ export default function RootLayout({
     </html>
   );
 }
-
